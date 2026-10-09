@@ -3,8 +3,8 @@ import { getCaller, svcHeaders, restUrl } from './_lib.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  // This diagnostic endpoint is restricted to Preview; it must never send from Production.
-  if (process.env.VERCEL_ENV !== 'preview') {
+  // Allow only Preview and Production. The handler authenticates the caller and targets only that user's devices.
+  if (!['preview', 'production'].includes(process.env.VERCEL_ENV)) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
