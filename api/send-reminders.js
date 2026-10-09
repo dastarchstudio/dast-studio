@@ -14,6 +14,19 @@ export default async function handler(req, res) {
   if (!process.env.CRON_SECRET || !timingSafeEqual(sha(given), sha(process.env.CRON_SECRET))) {
     res.status(401).json({ error: 'unauthorized' }); return;
   }
+  const required = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
+  if (required.some((key) => !process.env[key])) {
+    res.status(503).json({ error: 'push_not_configured' }); return;
+  }
+  try {
+    const configuredUrl = new URL(process.env.SUPABASE_URL);
+    if (configuredUrl.protocol !== 'https:' || !configuredUrl.hostname.endsWith('.supabase.co')) {
+      res.status(503).json({ error: 'push_not_configured' }); return;
+    }
+  } catch {
+    res.status(503).json({ error: 'push_not_configured' }); return;
+  }
+
   const kind = req.query.kind;
   if (kind !== 'in' && kind !== 'out') { res.status(400).json({ error: 'bad_kind' }); return; }
 
@@ -37,7 +50,11 @@ export default async function handler(req, res) {
 
   if (req.query.dry) { res.status(200).json({ status: 'dry', kind, would_send: targets.length, total_devices: subs.length }); return; }
 
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@example.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+  try {
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@example.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+  } catch {
+    res.status(503).json({ error: 'push_not_configured' }); return;
+  }
   const payload = JSON.stringify(kind === 'in'
     ? { title: '⏰ ساعت ۹ صبح', body: 'یادت نره ورودت رو ثبت کنی.', tag: 'attendance-in', url: '/' }
     : { title: '⏰ ساعت ۵ عصر', body: 'قبل از رفتن، خروجت رو ثبت کن.', tag: 'attendance-out', url: '/' });
