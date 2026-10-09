@@ -341,8 +341,8 @@ function updateStudioLogos() {
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   });
 }
-const SUPABASE_URL = "https://ooeedxwyjpcgurxeutdb.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vZWVkeHd5anBjZ3VyeGV1dGRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNzM4NTEsImV4cCI6MjEwNTY0OTg1MX0.ZbDel9uPG0sSsdzWRbgvrH_inLA7IafmprYTpqhTPXQ";
+const SUPABASE_URL = "https://rzysrvrtkxongcxouywl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STAGES = ["سرنخ جدید", "تماس اولیه", "جلسه برگزار شد", "پیشنهاد ارسال شد", "برنده", "بازنده"];
@@ -479,22 +479,64 @@ function notificationPreferenceEnabled(key = 'enabled') {
 }
 
 function notificationPreferenceKey(notification) {
-  if (notification?.type === 'task' || notification?.type === 'task_new') return 'task_new';
-  if (notification?.type === 'deadline' || notification?.type === 'task_due' || notification?.type === 'due') return 'task_due';
+  const type = String(notification?.type || '').toLowerCase().replace(/[\\s-]+/g, '_');
+  if (['task', 'task_new', 'new_task', 'task_assigned'].includes(type)) return 'task_new';
+  if (['deadline', 'task_due', 'due', 'task_deadline'].includes(type)) return 'task_due';
+  if (['attendance_check_in', 'attendance_in', 'check_in', 'checkin', 'entry'].includes(type)) return 'attendance_check_in';
+  if (['attendance_check_out', 'attendance_out', 'check_out', 'checkout', 'exit'].includes(type)) return 'attendance_check_out';
+  if (type.includes('attendance')) {
+    const content = String(notification?.title || '') + ' ' + String(notification?.body || '');
+    if (/(خروج|check[ _-]?out|checkout)/i.test(content)) return 'attendance_check_out';
+    if (/(ورود|check[ _-]?in|checkin|entry)/i.test(content)) return 'attendance_check_in';
+  }
   return 'enabled';
 }
 
-async function syncPushSubscriptionWithPreferences() {
-  if (!pushSupported() || !swReg) return;
-  const sub = await swReg.pushManager.getSubscription();
-  if (notificationPreferences.enabled && 'Notification' in window && Notification.permission === 'granted') {
-    if (!sub) await subscribeToPush();
-    return;
+// Prevent repeated clicks and out-of-order saves from making switches appear inconsistent.
+let notificationSettingsBusy = false;
+function setNotificationControlsBusy(busy) {
+  document.querySelectorAll('#section-notification-settings [data-preference-key]').forEach((el) => {
+    el.disabled = !!busy;
+    el.setAttribute('aria-busy', String(!!busy));
+  });
+  const testButton = document.getElementById('push-test-btn');
+  if (testButton) testButton.disabled = !!busy || !pushSupported() || Notification.permission !== 'granted' || !notificationPreferences.enabled;
+}
+async function ensurePushServiceWorker() {
+  if (!pushSupported()) return false;
+  try {
+    if (!swReg) await navigator.serviceWorker.register('/sw.js');
+    swReg = await navigator.serviceWorker.ready;
+    return !!swReg;
+  } catch (error) {
+    console.warn('Push service worker unavailable:', error?.name || 'unknown_error');
+    return false;
   }
-  if (sub) {
-    try { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); } catch (_) {}
+}
+async function unsubscribeCurrentPushSubscription() {
+  if (!pushSupported()) return true;
+  try {
+    const registration = swReg || await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    if (!sub) return true;
+    const result = await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint });
+    if (!result || result.status !== 'removed') return false;
     try { await sub.unsubscribe(); } catch (_) {}
+    return true;
+  } catch (error) {
+    console.warn('Push unsubscribe failed:', error?.name || 'unknown_error');
+    return false;
   }
+}
+
+async function syncPushSubscriptionWithPreferences() {
+  if (!pushSupported()) return true;
+  if (notificationPreferences.enabled && 'Notification' in window && Notification.permission === 'granted') {
+    const ready = await ensurePushServiceWorker();
+    if (!ready) return false;
+    return await subscribeToPush();
+  }
+  return await unsubscribeCurrentPushSubscription();
 }
 
 // ================= AUTH =================
@@ -733,8 +775,6 @@ function openSettingsCenter() {
   const ios = isIOS();
   const notifSupported = pushSupported();
   const notifGranted = notifSupported && 'Notification' in window && Notification.permission === 'granted';
-  const calendarConnected = !!googleStatus?.me?.connected && !googleStatus?.me?.needs_reconnect;
-  const calendarNeedsReconnect = !!googleStatus?.me?.needs_reconnect;
 
   root.innerHTML = `
     <div class="overlay settings-overlay" onclick="if(event.target===this)this.remove()">
@@ -772,11 +812,6 @@ function openSettingsCenter() {
             <span class="settings-row-action">${standalone ? 'نصب شده ✓' : 'نصب'}</span>
           </button>
 
-          <button type="button" class="settings-row" onclick="connectCalendar();setTimeout(openSettingsCenter,700)">
-            <span class="settings-row-icon">📅</span>
-            <span class="settings-row-copy"><strong>تقویم گوگل</strong><small>${calendarNeedsReconnect ? 'اتصال نیاز به بازسازی دارد' : calendarConnected ? 'تقویم متصل است' : 'تقویم هنوز متصل نیست'}</small></span>
-            <span class="settings-row-action">${calendarConnected ? 'متصل ✓' : 'اتصال'}</span>
-          </button>
 
           <button type="button" class="settings-row" onclick="changeMyPassword()">
             <span class="settings-row-icon">🔐</span>
@@ -829,12 +864,16 @@ function playBrandSectionMotion() {
 }
 
 function notificationToggle(key, title, description) {
-  const on = notificationPreferenceEnabled(key);
+  // Show each category's saved preference independently, even when the master switch is off.
+  const on = notificationPreferences[key] !== false;
   const icon = key === 'task_new' ? '📋' : key === 'task_due' ? '📅' : key === 'attendance_check_in' ? '🕘' : '🕔';
-  return '<button type="button" class="notification-preference-row" data-preference-key="' + key + '" data-preference-value="' + (!on) + '" onclick="setNotificationPreferenceFromElement(this)">';
-    + '<span class="notification-preference-icon">' + icon + '</span>'
-    + '<span class="notification-preference-copy"><strong>' + title + '</strong><small>' + description + '</small></span>'
+  const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(description);
+  return '<button type="button" class="notification-preference-row" data-preference-key="' + key + '" data-preference-value="' + (!on) + '" aria-pressed="' + on + '" aria-label="' + safeTitle + '" onclick="setNotificationPreferenceFromElement(this)">'
+    + '<span class="notification-preference-icon" aria-hidden="true">' + icon + '</span>'
+    + '<span class="notification-preference-copy"><strong>' + safeTitle + '</strong><small>' + safeDescription + '</small></span>'
     + '<span class="notification-switch ' + (on ? 'active' : '') + '" aria-hidden="true"><span></span></span>'
+    + '<span class="notification-toggle-state">' + (on ? 'روشن' : 'خاموش') + '</span>'
     + '</button>';
 }
 
@@ -846,9 +885,9 @@ function renderNotificationSettings() {
     + '<div class="notification-settings-top"><button type="button" class="btn small secondary" onclick="openSettingsCenter()">← بازگشت به تنظیمات</button></div>'
     + '<div class="card notification-preferences-hero">'
     + '<div class="notification-preference-head"><span class="profile-setting-icon">🔔</span><div><strong>دریافت اعلان‌ها</strong><div class="sr-meta">اعلان‌های سیستم، یادآوری‌ها و هشدارهای مرتبط با حساب</div></div>'
-    + '<button type="button" class="notification-switch ' + (masterOn ? 'active' : '') + '" data-preference-key="enabled" data-preference-value="' + (!masterOn) + '" onclick="setNotificationPreferenceFromElement(this)" aria-label="' + (masterOn ? 'خاموش کردن اعلان‌ها' : 'روشن کردن اعلان‌ها') + '"><span></span></button></div>'
+    + '<button type="button" class="notification-switch ' + (masterOn ? 'active' : '') + '" data-preference-key="enabled" data-preference-value="' + (!masterOn) + '" aria-pressed="' + masterOn + '" onclick="setNotificationPreferenceFromElement(this)" aria-label="' + (masterOn ? 'خاموش کردن اعلان‌ها' : 'روشن کردن اعلان‌ها') + '"><span></span></button><span class="notification-master-label">' + (masterOn ? 'روشن' : 'خاموش') + '</span></div>'
     + '<div class="notification-device-status ' + (permission === 'granted' && masterOn ? 'ok' : '') + '">'
-    + (!supported ? 'مرورگر فعلی اعلان وب را پشتیبانی نمی‌کند.' : permission === 'granted' && masterOn ? 'اعلان‌های این دستگاه فعال است.' : permission === 'denied' ? 'اجازه اعلان توسط مرورگر رد شده؛ از تنظیمات مرورگر فعالش کن.' : 'با روشن کردن کلید اصلی، اجازه اعلان دستگاه هم در صورت نیاز درخواست می‌شود.')
+    + (!supported ? 'مرورگر فعلی اعلان وب را پشتیبانی نمی‌کند.' : !masterOn ? 'اعلان‌های Push خاموش است؛ برای روشن کردن، کلید بالا را بزن.' : permission === 'granted' ? 'اعلان‌های Push این دستگاه فعال است.' : permission === 'denied' ? 'اجازه اعلان توسط مرورگر رد شده؛ از تنظیمات مرورگر فعالش کن.' : 'با روشن کردن کلید اصلی، اجازه اعلان دستگاه هم در صورت نیاز درخواست می‌شود.')
     + '</div></div>'
     + '<div class="notification-preference-group"><div class="notification-group-title"><strong>اعلان‌های سیستم</strong><span>کنترل هر نوع اعلان به‌صورت جداگانه</span></div>'
     + notificationToggle('task_new', 'وظیفه جدید', 'وقتی وظیفه‌ای برایت ایجاد یا به تو اختصاص داده می‌شود.')
@@ -859,35 +898,67 @@ function renderNotificationSettings() {
     + notificationToggle('attendance_check_out', 'یادآوری ثبت خروج', 'یادآوری ساعت ۱۷:۰۰ در روزهای کاری.')
     + '</div>'
     + '<div class="card notification-settings-note"><strong>نکته</strong><span>خاموش کردن کلید اصلی، اعلان‌های Push این دستگاه را هم غیرفعال می‌کند. تاریخچه اعلان‌ها در پنل باقی می‌ماند.</span></div>'
+    + '<div class="card notification-settings-note"><strong>آزمایش Push</strong><span>اعلان آزمایشی فقط به دستگاه‌های متصل به حساب خودت ارسال می‌شود.</span><button type="button" id="push-test-btn" class="btn" onclick="sendPushTest()" ' + (!supported || permission !== 'granted' || !masterOn ? 'disabled' : '') + '>ارسال اعلان آزمایشی</button></div>'
     + '</div>';
 }
 
 async function setNotificationPreferenceFromElement(el) {
   const key = el?.dataset?.preferenceKey;
-  if (!key) return;
+  if (!key || notificationSettingsBusy) return;
   const value = String(el.dataset.preferenceValue) === 'true';
   await setNotificationPreference(key, value);
 }
 
 async function setNotificationPreference(key, value) {
+  if (notificationSettingsBusy || !['enabled', 'task_new', 'task_due', 'attendance_check_in', 'attendance_check_out'].includes(key)) return;
   const nextValue = !!value;
-  if (key === 'enabled' && nextValue && pushSupported() && 'Notification' in window && Notification.permission !== 'granted') {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      showToast('اجازه اعلان فعال نشد.');
-      renderNotificationSettingsIntoPage();
+  if (notificationPreferences[key] === nextValue) return;
+
+  notificationSettingsBusy = true;
+  setNotificationControlsBusy(true);
+  let subscribedBeforeSave = false;
+  try {
+    if (key === 'enabled' && nextValue) {
+      if (isIOS() && !isStandalone()) { showInstallHelp(); return; }
+      if (!pushSupported()) { showToast('این مرورگر اعلان Push را پشتیبانی نمی‌کند.'); return; }
+      const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showToast(permission === 'denied'
+          ? 'اجازه اعلان در تنظیمات مرورگر رد شده؛ ابتدا آن را فعال کن.'
+          : 'اجازه اعلان داده نشد؛ تنظیمات ذخیره نشد.');
+        return;
+      }
+      const ready = await ensurePushServiceWorker();
+      if (!ready) { showToast('سرویس اعلان آماده نشد؛ اتصال و تنظیمات مرورگر را بررسی کن.'); return; }
+      const subscribed = await subscribeToPush();
+      if (!subscribed) { showToast('اشتراک Push در سرور ثبت نشد؛ وضعیت قبلی حفظ شد.'); return; }
+      subscribedBeforeSave = true;
+    }
+
+    const saved = await saveNotificationPreferences({ [key]: nextValue });
+    if (!saved) {
+      if (key === 'enabled' && nextValue && subscribedBeforeSave) await unsubscribeCurrentPushSubscription();
       return;
     }
+
+    if (key === 'enabled' && !nextValue) {
+      const removed = await unsubscribeCurrentPushSubscription();
+      if (!removed) {
+        showToast('اعلان‌ها خاموش شد؛ پاک‌سازی اشتراک این دستگاه کامل نشد. دوباره امتحان کن.');
+        return;
+      }
+    }
+    if (key === 'enabled') showToast(nextValue ? 'اعلان‌ها فعال شدند ✅' : 'اعلان‌ها خاموش شدند.');
+    else showToast(nextValue ? 'این نوع اعلان فعال شد.' : 'این نوع اعلان خاموش شد.');
+  } catch (error) {
+    console.error('Notification preference update failed:', error?.name || 'unknown_error');
+    showToast('تنظیم اعلان ذخیره نشد؛ اتصال را بررسی کن و دوباره تلاش کن.');
+  } finally {
+    notificationSettingsBusy = false;
+    setNotificationControlsBusy(false);
+    renderNotificationSettingsIntoPage();
+    updateProfileSettingsUI();
   }
-  const ok = await saveNotificationPreferences({ [key]: nextValue });
-  if (!ok) return;
-  if (key === 'enabled') {
-    try { await syncPushSubscriptionWithPreferences(); } catch (_) {}
-  }
-  renderNotificationSettingsIntoPage();
-  updateProfileSettingsUI();
-  if (key === 'enabled' && nextValue) showToast('اعلان‌ها فعال شدند ✅');
-  else if (key === 'enabled') showToast('اعلان‌ها خاموش شدند.');
 }
 
 function renderNotificationSettingsIntoPage() {
@@ -960,7 +1031,6 @@ async function loadProfileAndShowApp() {
     setTimeout(() => window.dastWebNfcAttendance?.(), 450);
   }
   loadMyTasks();
-  refreshGoogleStatus();
   startTaskNotifications();
   startNotificationCenter();
   setTimeout(() => window.tryPendingAttendanceQR?.(), 250);
@@ -993,7 +1063,7 @@ async function notifyUser(title, body) {
     else new Notification(title, { body, dir: 'rtl' });
   } catch (e) { /* اعلان سیستمی ممکن نشد؛ پیام داخل صفحه نمایش داده شد */ }
 }
-const VAPID_PUBLIC_KEY = 'BBlhXzAtTRWGRgqQbXw7eaNFdRl_pKd4Gjzg2vGKNdplVGfAq0GGM2pGRpbe5r1inrgmc0GNfkNX8XYGokzdPpg';
+const VAPID_PUBLIC_KEY = 'BKgkg25B2P5WlrJQAKsHpofKjDpGAr45FqTDPg6wXxqr0mt8WwfAW7QkPYNeXwVeb8jRKNIpqsO6dQ3nesuun-s';
 function b64ToUint8(b64) {
   const pad = '='.repeat((4 - b64.length % 4) % 4);
   const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -1004,12 +1074,42 @@ const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
 // ثبت این دستگاه برای دریافت اعلان‌های سرور (یادآور ورود و خروج)
+function subscriptionUsesCurrentVapidKey(sub) {
+  try {
+    const existingKey = sub?.options?.applicationServerKey;
+    // بعضی مرورگرها کلید اشتراک موجود را نمایش نمی‌دهند؛ در این حالت آن را بی‌دلیل باطل نمی‌کنیم.
+    if (!existingKey) return true;
+    const actual = new Uint8Array(existingKey);
+    const expected = b64ToUint8(VAPID_PUBLIC_KEY);
+    return actual.length === expected.length && actual.every((byte, index) => byte === expected[index]);
+  } catch (_) {
+    return false;
+  }
+}
 async function subscribeToPush() {
   if (!pushSupported() || !swReg) return false;
-  let sub = await swReg.pushManager.getSubscription();
-  if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY) });
-  const r = await apiPost('/api/push-subscribe', { subscription: sub.toJSON() });
-  return r && r.status === 'saved';
+  try {
+    let sub = await swReg.pushManager.getSubscription();
+    let storedVapidKey = null;
+    try { storedVapidKey = localStorage.getItem('dast-vapid-key-version'); } catch (_) {}
+    // On the first release with a version marker, renew old subscriptions once even in browsers that hide their applicationServerKey.
+    const needsRotation = sub && (storedVapidKey !== VAPID_PUBLIC_KEY || !subscriptionUsesCurrentVapidKey(sub));
+    if (needsRotation) {
+      try { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); } catch (_) {}
+      try { await sub.unsubscribe(); } catch (_) {}
+      sub = null;
+    }
+    if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY) });
+    const r = await apiPost('/api/push-subscribe', { subscription: sub.toJSON() });
+    if (r && r.status === 'saved') {
+      try { localStorage.setItem('dast-vapid-key-version', VAPID_PUBLIC_KEY); } catch (_) {}
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.warn('Push subscription failed:', error?.name || 'unknown_error');
+    return false;
+  }
 }
 async function enableNotifications() {
   if (isIOS() && !isStandalone()) { showInstallHelp(); return; }
@@ -1026,6 +1126,34 @@ async function enableNotifications() {
     updateProfileSettingsUI();
   } else {
     alert('فعال‌سازی اعلان روی سرور ثبت نشد، دوباره تلاش کن.');
+  }
+}
+
+// ارسال اعلان آزمایشی فقط به دستگاه‌های ثبت‌شده برای همین حساب؛ endpoint در Production غیرفعال است.
+async function sendPushTest() {
+  if (!pushSupported() || !swReg) {
+    alert('این مرورگر از Push پشتیبانی نمی‌کند یا سرویس‌ورکر آماده نیست.');
+    return;
+  }
+  if (Notification.permission !== 'granted' || !notificationPreferences.enabled) {
+    alert('ابتدا اعلان‌ها را در همین دستگاه فعال کن.');
+    return;
+  }
+  const btn = document.getElementById('push-test-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'در حال ارسال…'; }
+  try {
+    const result = await apiPost('/api/push-test', {});
+    if (result?.status === 'sent' && result.sent > 0) {
+      alert('درخواست ارسال اعلان آزمایشی با موفقیت ثبت شد. بررسی کن اعلان روی دستگاه نمایش داده شود.');
+    } else if (result?.status === 'no_subscription') {
+      alert('برای این حساب اشتراک Push ثبت نشده است. اعلان‌ها را یک‌بار خاموش و دوباره روشن کن.');
+    } else {
+      alert('ارسال اعلان آزمایشی انجام نشد. (' + (result?.error || result?.status || 'خطا') + ')');
+    }
+  } catch (_) {
+    alert('ارسال اعلان آزمایشی انجام نشد. دوباره تلاش کن.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'ارسال اعلان آزمایشی'; }
   }
 }
 
@@ -1142,42 +1270,6 @@ function startNotificationCenter() {
     })
     .subscribe();
 }
-let googleStatus = null;
-async function refreshGoogleStatus() {
-  const r = await fetch('/api/google-status', { headers: await authHeader() });
-  googleStatus = await r.json().catch(() => null);
-  const btn = document.getElementById('calendar-btn');
-  if (!googleStatus || !btn) return;
-  btn.classList.remove('hidden');
-  const icon = googleStatus.me.needs_reconnect ? '⚠️' : googleStatus.me.connected ? '✓' : '◫';
-  const label = googleStatus.me.needs_reconnect ? 'نیاز به اتصال مجدد' : googleStatus.me.connected ? 'کلندر متصل' : 'اتصال کلندر';
-  const detail = googleStatus.me.connected ? (googleStatus.me.email || '') : '';
-  btn.innerHTML = '<span class="header-status-icon" aria-hidden="true">'+icon+'</span><span class="header-status-copy"><strong>'+label+'</strong><small>'+detail+'</small></span>';
-  btn.title = googleStatus.me.needs_reconnect ? 'اتصال مجدد گوگل کلندر' : googleStatus.me.connected ? 'گوگل کلندر متصل است' : 'اتصال گوگل کلندر';
-  btn.setAttribute('aria-label', btn.title);
-  btn.classList.toggle('is-connected', !!googleStatus.me.connected && !googleStatus.me.needs_reconnect);
-  btn.classList.toggle('needs-reconnect', !!googleStatus.me.needs_reconnect);
-  if (currentProfile.is_admin && document.getElementById('teamtasks-table')) renderEmployeeCalendarBadges();
-}
-function renderEmployeeCalendarBadges() {
-  if (!googleStatus || !googleStatus.all) return;
-  ['team-task-employee', 'team-task-filter'].forEach(id => {
-    const sel = document.getElementById(id); if (!sel) return;
-    [...sel.options].forEach(opt => {
-      const st = googleStatus.all[opt.value];
-      const base = opt.textContent.replace(/ \((وصل نیست|نیاز به اتصال مجدد)\)$/, '');
-      if (st && st.needs_reconnect) opt.textContent = base + ' (نیاز به اتصال مجدد)';
-      else if (st && !st.connected) opt.textContent = base + ' (وصل نیست)';
-      else opt.textContent = base;
-    });
-  });
-}
-async function connectCalendar() {
-  const r = await apiPost('/api/auth/login');
-  if (r && r.url) window.location.href = r.url;
-  else alert('اتصال به گوگل ممکن نشد.');
-}
-
 function avatarInitial(profile) {
   const name = String(profile?.full_name || 'د').trim();
   return escapeHtml(name ? Array.from(name)[0] : 'د');
@@ -1241,10 +1333,6 @@ function renderProfile() {
         <div class="profile-setting-head"><span class="profile-setting-icon">🔐</span><div><strong>امنیت حساب</strong><div class="sr-meta">رمز ورود را هر زمان خواستی تغییر بده</div></div></div>
         <button class="btn small secondary" onclick="changeMyPassword()">تغییر رمز عبور</button>
       </div>
-      <div class="card">
-        <div class="profile-setting-head"><span class="profile-setting-icon">📅</span><div><strong>تقویم گوگل</strong><div id="profile-calendar-status" class="sr-meta">از هدر هم قابل مدیریت است</div></div></div>
-        <button class="btn small secondary" onclick="connectCalendar()">اتصال تقویم</button>
-      </div>
       <div class="card profile-install-card">
         <div class="profile-setting-head"><span class="profile-setting-icon">📲</span><div><strong>اپ استودیو معماری دَست</strong><div id="profile-install-status" class="sr-meta">اپ را روی این دستگاه نصب کن.</div></div></div>
         <button id="profile-install-btn" class="btn small" onclick="installApp()">📲 نصب اپ</button>
@@ -1273,8 +1361,6 @@ function updateProfileSettingsUI() {
     const granted = supported && 'Notification' in window && Notification.permission === 'granted';
     notif.textContent = !supported ? 'این مرورگر اعلان وب را پشتیبانی نمی‌کند' : notificationPreferences.enabled && granted ? 'اعلان‌ها فعال هستند' : notificationPreferences.enabled ? 'اعلان‌ها در انتظار فعال‌سازی دستگاه هستند' : 'اعلان‌ها خاموش هستند';
   }
-  const cal = document.getElementById('profile-calendar-status');
-  if (cal) cal.textContent = googleStatus?.me?.needs_reconnect ? 'اتصال نیاز به بازسازی دارد' : googleStatus?.me?.connected ? 'تقویم متصل است' : 'تقویم هنوز متصل نیست';
 }
 function chooseProfileAvatar(value) {
   const input=document.getElementById('profile-avatar-value');
@@ -1894,10 +1980,29 @@ async function loadAttendanceAll() {
 }
 
 const JALALI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-function exportTimesheet() {
+async function exportTimesheet() {
   const sel = attendanceSelection('attendance-jy','attendance-jm');
   if (!sel) { alert('سال و ماه رو انتخاب کن'); return; }
-  window.open(`/api/export-timesheet?jy=${sel.jy}&jm=${sel.jm}`, '_blank');
+  try {
+    const response = await fetch(`/api/export-timesheet?jy=${sel.jy}&jm=${sel.jm}`, { headers: await authHeader() });
+    if (!response.ok) {
+      if (response.status === 401) showToast('برای دریافت خروجی، ورود معتبر و تنظیمات سرور لازم است.');
+      else if (response.status === 403) showToast('فقط مدیر دفتر مجاز به دریافت خروجی حضور و غیاب است.');
+      else showToast('دریافت خروجی انجام نشد. تنظیمات سرور را بررسی کنید.');
+      return;
+    }
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `timesheet-${sel.jy}-${sel.jm}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  } catch {
+    showToast('ارتباط با سرویس خروجی برقرار نشد.');
+  }
 }
 
 const HOLIDAYS_1405 = {
@@ -1967,7 +2072,6 @@ async function dropTask(e,status){
   if(!id)return;
   const { error } = await sb.from('personal_tasks').update({status}).eq('id',id);
   if(error){ showToast('تغییر وضعیت انجام نشد.'); return; }
-  apiPost('/api/task-calendar', { task_id:id, action:'sync' }).catch(()=>{});
   if(currentProfile?.is_admin) await loadTeamTasks();
   else await loadMyTasks();
 }
@@ -2021,17 +2125,6 @@ function renderTasksSection() {
   if (currentProfile.is_admin) { fillEmployeeSelect(); loadTeamTasks(); loadUnifiedTaskOverview(); }
 }
 
-const CAL_MSG = {
-  not_connected: 'گوگل کلندر وصل نیست، پس مهلت در کلندر ثبت نشد.',
-  needs_reconnect: 'اتصال گوگل کلندر منقضی شده و باید دوباره وصل شود.',
-  error: 'ثبت در گوگل کلندر انجام نشد.',
-  google_error: 'ثبت در گوگل کلندر انجام نشد.'
-};
-async function syncTaskCalendar(taskId, forOther) {
-  const r = await apiPost('/api/task-calendar', { task_id: taskId, action: 'sync' });
-  if (r && r.status === 'created') showToast('مهلت در گوگل کلندر ثبت شد ✅');
-  else if (r && CAL_MSG[r.status]) showToast((forOther ? 'برای این کارمند: ' : '') + CAL_MSG[r.status]);
-}
 function taskActionButtons(t, onDelete) {
   const next = { new: ['progress', 'شروع کار'], progress: ['done', 'انجام شد'] }[t.status];
   return `${next ? `<button class="btn small" onclick="advanceTask('${t.id}','${next[0]}')">${next[1]}</button>` : ''}
@@ -2041,7 +2134,6 @@ function taskActionButtons(t, onDelete) {
 }
 async function advanceTask(id, status) {
   await sb.from('personal_tasks').update({ status }).eq('id', id);
-  apiPost('/api/task-calendar', { task_id: id, action: 'sync' });
   loadMyTasks(); if (currentProfile.is_admin) loadTeamTasks();
 }
 
@@ -2053,7 +2145,6 @@ async function addMyTask() {
   const { data, error } = await sb.from('personal_tasks').insert([{ user_id: currentUser.id, title, due_date, priority, status: 'new' }]).select().single();
   document.getElementById('mytask-title').value=''; clearJalaliDate('mytask-date');
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (data && due_date) syncTaskCalendar(data.id, false);
   loadMyTasks();
 }
 async function loadMyTasks() {
@@ -2080,7 +2171,6 @@ async function loadMyTasks() {
   </tr>`).join('') || '<tr><td colspan="5" class="empty">کاری با این فیلتر پیدا نشد.</td></tr>';
 }
 async function deleteMyTask(id) {
-  await apiPost('/api/task-calendar', { task_id: id, action: 'remove' });
   await sb.from('personal_tasks').delete().eq('id', id);
   loadMyTasks(); if (currentProfile.is_admin) loadTeamTasks();
 }
@@ -2100,7 +2190,6 @@ async function addTeamTask() {
   const { data, error } = await sb.from('personal_tasks').insert([{ user_id, title, due_date, priority, status: 'new', assigned_by: currentUser.id }]).select().single();
   document.getElementById('team-task-title').value=''; clearJalaliDate('team-task-date');
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (data && due_date) syncTaskCalendar(data.id, data.user_id !== currentUser.id);
   loadTeamTasks(); if (data && data.user_id === currentUser.id) loadMyTasks();
 }
 async function loadTeamTasks() {
@@ -2131,7 +2220,6 @@ async function loadTeamTasks() {
   }
 }
 async function deleteTeamTask(id) {
-  await apiPost('/api/task-calendar', { task_id: id, action: 'remove' });
   await sb.from('personal_tasks').delete().eq('id', id);
   loadTeamTasks();
 }
@@ -2571,7 +2659,6 @@ async function addOfficeTask() {
   const client_id = document.getElementById('task-client').value || null;
   if (!title) return;
   await sb.from('tasks').insert([{ title, date, client_id, status: 'new' }]);
-  if (date) apiPost('/api/create-event', { title, date });
   document.getElementById('task-title').value=''; clearJalaliDate('task-date');
   loadOfficeTasks();
 }
@@ -2872,7 +2959,6 @@ async function saveEditModal(table, id) {
   });
   const { error } = await sb.from(table).update(payload).eq('id', id);
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (table === 'personal_tasks') apiPost('/api/task-calendar', { task_id: id, action: 'sync' });
   closeEditModal();
   if (currentProfile.is_admin) { refreshAllErpData(); if (document.getElementById('teamtasks-table')) loadTeamTasks(); }
   else renderTasksSection();
@@ -2885,10 +2971,4 @@ if (_attendanceQrParam === 'office') {
   sessionStorage.setItem('dast_pending_attendance_qr', 'office');
   window.history.replaceState({}, '', location.pathname);
   setTimeout(() => window.tryPendingAttendanceQR?.(), 900);
-}
-const _calParam = new URLSearchParams(location.search).get('calendar');
-if (_calParam) {
-  window.history.replaceState({}, '', location.pathname);
-  if (_calParam === 'connected') setTimeout(() => alert('گوگل کلندر با موفقیت وصل شد.'), 300);
-  else if (_calParam === 'error') setTimeout(() => alert('اتصال گوگل کلندر ناموفق بود، دوباره تلاش کن.'), 300);
 }

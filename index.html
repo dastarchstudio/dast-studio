@@ -886,10 +886,15 @@ body.dark .greeting-sticker{background:rgba(35,36,48,.76);border-color:rgba(255,
 .notification-preference-copy{display:grid;gap:4px;flex:1;min-width:0}
 .notification-preference-copy strong{font-size:12px}
 .notification-preference-copy small{font-size:10px;line-height:1.8;color:var(--muted)}
-.notification-switch{position:relative;width:48px;height:28px;border-radius:999px;background:var(--border);padding:3px;flex:none;transition:.18s ease}
-.notification-switch span{display:block;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.16);transition:.18s ease}
+.notification-switch{appearance:none;-webkit-appearance:none;position:relative;width:48px;height:28px;border:0;border-radius:999px;background:var(--border);padding:3px;display:flex;align-items:center;justify-content:flex-start;flex:none;cursor:pointer;transition:background-color .18s ease,opacity .18s ease}
+.notification-switch span{display:block;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.16);transition:transform .18s ease}
 .notification-switch.active{background:#5b51b1}
 .notification-switch.active span{transform:translateX(20px)}
+.notification-switch:focus-visible,.notification-preference-row:focus-visible{outline:3px solid var(--navy-light);outline-offset:3px}
+.notification-switch:disabled,.notification-preference-row:disabled{opacity:.62;cursor:wait}
+.notification-preference-row[aria-busy="true"]{pointer-events:none;opacity:.72}
+.notification-toggle-state,.notification-master-label{font-size:10px;color:var(--muted);min-width:34px;text-align:left;flex:none}
+.notification-preference-copy{overflow-wrap:anywhere}
 body.dark .notification-preference-row{box-shadow:none}
 body.dark .notification-switch span{background:#f8f8fb}
 .notification-settings-note{display:flex;align-items:flex-start;gap:10px;flex-direction:column}
@@ -1251,9 +1256,6 @@ body.dark .studio-logo-dark{display:block!important}
           <span class="header-avatar" id="header-avatar" aria-hidden="true">◌</span>
           <span class="header-user-copy"><strong id="user-badge"></strong><small>پروفایل من</small></span>
           <span class="header-user-arrow" aria-hidden="true">‹</span>
-        </button>
-        <button class="header-status-btn hidden" id="calendar-btn" onclick="connectCalendar()" aria-label="اتصال به گوگل کلندر" title="اتصال به گوگل کلندر">
-          <span class="header-status-icon" aria-hidden="true">◫</span><span class="header-status-copy"><strong>اتصال کلندر</strong><small></small></span>
         </button>
         <button class="header-icon-btn hidden" id="install-btn" onclick="installApp()" aria-label="نصب اپ" title="نصب اپ">↥</button>
         <button class="header-icon-btn hidden" id="dark-btn" onclick="toggleDarkMode()" aria-label="تغییر حالت نمایش" title="تغییر حالت نمایش">☾</button>
