@@ -852,6 +852,7 @@ function renderNotificationSettings() {
     + notificationToggle('attendance_check_out', 'یادآوری ثبت خروج', 'یادآوری ساعت ۱۷:۰۰ در روزهای کاری.')
     + '</div>'
     + '<div class="card notification-settings-note"><strong>نکته</strong><span>خاموش کردن کلید اصلی، اعلان‌های Push این دستگاه را هم غیرفعال می‌کند. تاریخچه اعلان‌ها در پنل باقی می‌ماند.</span></div>'
+    + '<div class="card notification-settings-note"><strong>آزمایش Push</strong><span>اعلان آزمایشی فقط به دستگاه‌های متصل به حساب خودت ارسال می‌شود.</span><button type="button" id="push-test-btn" class="btn" onclick="sendPushTest()" ' + (!supported || permission !== 'granted' || !masterOn ? 'disabled' : '') + '>ارسال اعلان آزمایشی</button></div>'
     + '</div>';
 }
 
@@ -1041,6 +1042,34 @@ async function enableNotifications() {
     updateProfileSettingsUI();
   } else {
     alert('فعال‌سازی اعلان روی سرور ثبت نشد، دوباره تلاش کن.');
+  }
+}
+
+// ارسال اعلان آزمایشی فقط به دستگاه‌های ثبت‌شده برای همین حساب؛ endpoint در Production غیرفعال است.
+async function sendPushTest() {
+  if (!pushSupported() || !swReg) {
+    alert('این مرورگر از Push پشتیبانی نمی‌کند یا سرویس‌ورکر آماده نیست.');
+    return;
+  }
+  if (Notification.permission !== 'granted' || !notificationPreferences.enabled) {
+    alert('ابتدا اعلان‌ها را در همین دستگاه فعال کن.');
+    return;
+  }
+  const btn = document.getElementById('push-test-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'در حال ارسال…'; }
+  try {
+    const result = await apiPost('/api/push-test', {});
+    if (result?.status === 'sent' && result.sent > 0) {
+      alert('درخواست ارسال اعلان آزمایشی با موفقیت ثبت شد. بررسی کن اعلان روی دستگاه نمایش داده شود.');
+    } else if (result?.status === 'no_subscription') {
+      alert('برای این حساب اشتراک Push ثبت نشده است. اعلان‌ها را یک‌بار خاموش و دوباره روشن کن.');
+    } else {
+      alert('ارسال اعلان آزمایشی انجام نشد. (' + (result?.error || result?.status || 'خطا') + ')');
+    }
+  } catch (_) {
+    alert('ارسال اعلان آزمایشی انجام نشد. دوباره تلاش کن.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'ارسال اعلان آزمایشی'; }
   }
 }
 
