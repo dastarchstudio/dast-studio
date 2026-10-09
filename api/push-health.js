@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       cronSecretConfigured: !!process.env.CRON_SECRET,
       vapidPublicKeyConfigured: !!publicValue,
       vapidPrivateKeyConfigured: !!privateValue,
-      vapidKeyPairMatches
+      vapidKeyPairMatches: vapidPairMatches
     };
     const ready = checks.supabaseUrlMatchesDestination &&
       checks.anonKeyMatchesDestination &&
