@@ -93,7 +93,9 @@ export default async function handler(req, res) {
       checks.vapidKeyPairMatches;
     res.status(ready ? 200 : 503).json({ ready, checks });
   } catch (error) {
-    console.error('push_health_check_failed', stage, error?.name || 'unknown');
-    res.status(500).json({ error: 'push_health_check_failed', stage, type: error?.name || 'unknown' });
+    const message = String(error?.message || '');
+    const safeDetail = /^[A-Za-z_$][A-Za-z0-9_$]* is not defined$/.test(message) ? message : 'see_runtime_logs';
+    console.error('push_health_check_failed', stage, error?.name || 'unknown', safeDetail);
+    res.status(500).json({ error: 'push_health_check_failed', stage, type: error?.name || 'unknown', detail: safeDetail });
   }
 }
