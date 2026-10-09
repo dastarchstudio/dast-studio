@@ -1090,15 +1090,22 @@ async function subscribeToPush() {
   if (!pushSupported() || !swReg) return false;
   try {
     let sub = await swReg.pushManager.getSubscription();
-    // اشتراک‌های ساخته‌شده با کلید VAPID قبلی با کلید جدید ارسال‌پذیر نیستند؛ با رضایت ثبت‌شدهٔ دستگاه نوسازی‌شان می‌کنیم.
-    if (sub && !subscriptionUsesCurrentVapidKey(sub)) {
+    let storedVapidKey = null;
+    try { storedVapidKey = localStorage.getItem('dast-vapid-key-version'); } catch (_) {}
+    // On the first release with a version marker, renew old subscriptions once even in browsers that hide their applicationServerKey.
+    const needsRotation = sub && (storedVapidKey !== VAPID_PUBLIC_KEY || !subscriptionUsesCurrentVapidKey(sub));
+    if (needsRotation) {
       try { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); } catch (_) {}
       try { await sub.unsubscribe(); } catch (_) {}
       sub = null;
     }
     if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY) });
     const r = await apiPost('/api/push-subscribe', { subscription: sub.toJSON() });
-    return !!(r && r.status === 'saved');
+    if (r && r.status === 'saved') {
+      try { localStorage.setItem('dast-vapid-key-version', VAPID_PUBLIC_KEY); } catch (_) {}
+      return true;
+    }
+    return false;
   } catch (error) {
     console.warn('Push subscription failed:', error?.name || 'unknown_error');
     return false;
