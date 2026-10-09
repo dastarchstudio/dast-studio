@@ -341,8 +341,8 @@ function updateStudioLogos() {
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   });
 }
-const SUPABASE_URL = "https://ooeedxwyjpcgurxeutdb.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vZWVkeHd5anBjZ3VyeGV1dGRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNzM4NTEsImV4cCI6MjEwNTY0OTg1MX0.ZbDel9uPG0sSsdzWRbgvrH_inLA7IafmprYTpqhTPXQ";
+const SUPABASE_URL = "https://rzysrvrtkxongcxouywl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STAGES = ["سرنخ جدید", "تماس اولیه", "جلسه برگزار شد", "پیشنهاد ارسال شد", "برنده", "بازنده"];
@@ -993,7 +993,7 @@ async function notifyUser(title, body) {
     else new Notification(title, { body, dir: 'rtl' });
   } catch (e) { /* اعلان سیستمی ممکن نشد؛ پیام داخل صفحه نمایش داده شد */ }
 }
-const VAPID_PUBLIC_KEY = 'BBlhXzAtTRWGRgqQbXw7eaNFdRl_pKd4Gjzg2vGKNdplVGfAq0GGM2pGRpbe5r1inrgmc0GNfkNX8XYGokzdPpg';
+const VAPID_PUBLIC_KEY = 'BKgkg25B2P5WlrJQAKsHpofKjDpGAr45FqTDPg6wXxqr0mt8WwfAW7QkPYNeXwVeb8jRKNIpqsO6dQ3nesuun-s';
 function b64ToUint8(b64) {
   const pad = '='.repeat((4 - b64.length % 4) % 4);
   const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
