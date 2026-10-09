@@ -733,8 +733,6 @@ function openSettingsCenter() {
   const ios = isIOS();
   const notifSupported = pushSupported();
   const notifGranted = notifSupported && 'Notification' in window && Notification.permission === 'granted';
-  const calendarConnected = !!googleStatus?.me?.connected && !googleStatus?.me?.needs_reconnect;
-  const calendarNeedsReconnect = !!googleStatus?.me?.needs_reconnect;
 
   root.innerHTML = `
     <div class="overlay settings-overlay" onclick="if(event.target===this)this.remove()">
@@ -772,11 +770,6 @@ function openSettingsCenter() {
             <span class="settings-row-action">${standalone ? 'نصب شده ✓' : 'نصب'}</span>
           </button>
 
-          <button type="button" class="settings-row" onclick="connectCalendar();setTimeout(openSettingsCenter,700)">
-            <span class="settings-row-icon">📅</span>
-            <span class="settings-row-copy"><strong>تقویم گوگل</strong><small>${calendarNeedsReconnect ? 'اتصال نیاز به بازسازی دارد' : calendarConnected ? 'تقویم متصل است' : 'تقویم هنوز متصل نیست'}</small></span>
-            <span class="settings-row-action">${calendarConnected ? 'متصل ✓' : 'اتصال'}</span>
-          </button>
 
           <button type="button" class="settings-row" onclick="changeMyPassword()">
             <span class="settings-row-icon">🔐</span>
@@ -960,7 +953,6 @@ async function loadProfileAndShowApp() {
     setTimeout(() => window.dastWebNfcAttendance?.(), 450);
   }
   loadMyTasks();
-  refreshGoogleStatus();
   startTaskNotifications();
   startNotificationCenter();
   setTimeout(() => window.tryPendingAttendanceQR?.(), 250);
@@ -1142,42 +1134,6 @@ function startNotificationCenter() {
     })
     .subscribe();
 }
-let googleStatus = null;
-async function refreshGoogleStatus() {
-  const r = await fetch('/api/google-status', { headers: await authHeader() });
-  googleStatus = await r.json().catch(() => null);
-  const btn = document.getElementById('calendar-btn');
-  if (!googleStatus || !btn) return;
-  btn.classList.remove('hidden');
-  const icon = googleStatus.me.needs_reconnect ? '⚠️' : googleStatus.me.connected ? '✓' : '◫';
-  const label = googleStatus.me.needs_reconnect ? 'نیاز به اتصال مجدد' : googleStatus.me.connected ? 'کلندر متصل' : 'اتصال کلندر';
-  const detail = googleStatus.me.connected ? (googleStatus.me.email || '') : '';
-  btn.innerHTML = '<span class="header-status-icon" aria-hidden="true">'+icon+'</span><span class="header-status-copy"><strong>'+label+'</strong><small>'+detail+'</small></span>';
-  btn.title = googleStatus.me.needs_reconnect ? 'اتصال مجدد گوگل کلندر' : googleStatus.me.connected ? 'گوگل کلندر متصل است' : 'اتصال گوگل کلندر';
-  btn.setAttribute('aria-label', btn.title);
-  btn.classList.toggle('is-connected', !!googleStatus.me.connected && !googleStatus.me.needs_reconnect);
-  btn.classList.toggle('needs-reconnect', !!googleStatus.me.needs_reconnect);
-  if (currentProfile.is_admin && document.getElementById('teamtasks-table')) renderEmployeeCalendarBadges();
-}
-function renderEmployeeCalendarBadges() {
-  if (!googleStatus || !googleStatus.all) return;
-  ['team-task-employee', 'team-task-filter'].forEach(id => {
-    const sel = document.getElementById(id); if (!sel) return;
-    [...sel.options].forEach(opt => {
-      const st = googleStatus.all[opt.value];
-      const base = opt.textContent.replace(/ \((وصل نیست|نیاز به اتصال مجدد)\)$/, '');
-      if (st && st.needs_reconnect) opt.textContent = base + ' (نیاز به اتصال مجدد)';
-      else if (st && !st.connected) opt.textContent = base + ' (وصل نیست)';
-      else opt.textContent = base;
-    });
-  });
-}
-async function connectCalendar() {
-  const r = await apiPost('/api/auth/login');
-  if (r && r.url) window.location.href = r.url;
-  else alert('اتصال به گوگل ممکن نشد.');
-}
-
 function avatarInitial(profile) {
   const name = String(profile?.full_name || 'د').trim();
   return escapeHtml(name ? Array.from(name)[0] : 'د');
@@ -1241,10 +1197,6 @@ function renderProfile() {
         <div class="profile-setting-head"><span class="profile-setting-icon">🔐</span><div><strong>امنیت حساب</strong><div class="sr-meta">رمز ورود را هر زمان خواستی تغییر بده</div></div></div>
         <button class="btn small secondary" onclick="changeMyPassword()">تغییر رمز عبور</button>
       </div>
-      <div class="card">
-        <div class="profile-setting-head"><span class="profile-setting-icon">📅</span><div><strong>تقویم گوگل</strong><div id="profile-calendar-status" class="sr-meta">از هدر هم قابل مدیریت است</div></div></div>
-        <button class="btn small secondary" onclick="connectCalendar()">اتصال تقویم</button>
-      </div>
       <div class="card profile-install-card">
         <div class="profile-setting-head"><span class="profile-setting-icon">📲</span><div><strong>اپ استودیو معماری دَست</strong><div id="profile-install-status" class="sr-meta">اپ را روی این دستگاه نصب کن.</div></div></div>
         <button id="profile-install-btn" class="btn small" onclick="installApp()">📲 نصب اپ</button>
@@ -1273,8 +1225,6 @@ function updateProfileSettingsUI() {
     const granted = supported && 'Notification' in window && Notification.permission === 'granted';
     notif.textContent = !supported ? 'این مرورگر اعلان وب را پشتیبانی نمی‌کند' : notificationPreferences.enabled && granted ? 'اعلان‌ها فعال هستند' : notificationPreferences.enabled ? 'اعلان‌ها در انتظار فعال‌سازی دستگاه هستند' : 'اعلان‌ها خاموش هستند';
   }
-  const cal = document.getElementById('profile-calendar-status');
-  if (cal) cal.textContent = googleStatus?.me?.needs_reconnect ? 'اتصال نیاز به بازسازی دارد' : googleStatus?.me?.connected ? 'تقویم متصل است' : 'تقویم هنوز متصل نیست';
 }
 function chooseProfileAvatar(value) {
   const input=document.getElementById('profile-avatar-value');
@@ -1986,7 +1936,6 @@ async function dropTask(e,status){
   if(!id)return;
   const { error } = await sb.from('personal_tasks').update({status}).eq('id',id);
   if(error){ showToast('تغییر وضعیت انجام نشد.'); return; }
-  apiPost('/api/task-calendar', { task_id:id, action:'sync' }).catch(()=>{});
   if(currentProfile?.is_admin) await loadTeamTasks();
   else await loadMyTasks();
 }
@@ -2040,17 +1989,6 @@ function renderTasksSection() {
   if (currentProfile.is_admin) { fillEmployeeSelect(); loadTeamTasks(); loadUnifiedTaskOverview(); }
 }
 
-const CAL_MSG = {
-  not_connected: 'گوگل کلندر وصل نیست، پس مهلت در کلندر ثبت نشد.',
-  needs_reconnect: 'اتصال گوگل کلندر منقضی شده و باید دوباره وصل شود.',
-  error: 'ثبت در گوگل کلندر انجام نشد.',
-  google_error: 'ثبت در گوگل کلندر انجام نشد.'
-};
-async function syncTaskCalendar(taskId, forOther) {
-  const r = await apiPost('/api/task-calendar', { task_id: taskId, action: 'sync' });
-  if (r && r.status === 'created') showToast('مهلت در گوگل کلندر ثبت شد ✅');
-  else if (r && CAL_MSG[r.status]) showToast((forOther ? 'برای این کارمند: ' : '') + CAL_MSG[r.status]);
-}
 function taskActionButtons(t, onDelete) {
   const next = { new: ['progress', 'شروع کار'], progress: ['done', 'انجام شد'] }[t.status];
   return `${next ? `<button class="btn small" onclick="advanceTask('${t.id}','${next[0]}')">${next[1]}</button>` : ''}
@@ -2060,7 +1998,6 @@ function taskActionButtons(t, onDelete) {
 }
 async function advanceTask(id, status) {
   await sb.from('personal_tasks').update({ status }).eq('id', id);
-  apiPost('/api/task-calendar', { task_id: id, action: 'sync' });
   loadMyTasks(); if (currentProfile.is_admin) loadTeamTasks();
 }
 
@@ -2072,7 +2009,6 @@ async function addMyTask() {
   const { data, error } = await sb.from('personal_tasks').insert([{ user_id: currentUser.id, title, due_date, priority, status: 'new' }]).select().single();
   document.getElementById('mytask-title').value=''; clearJalaliDate('mytask-date');
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (data && due_date) syncTaskCalendar(data.id, false);
   loadMyTasks();
 }
 async function loadMyTasks() {
@@ -2099,7 +2035,6 @@ async function loadMyTasks() {
   </tr>`).join('') || '<tr><td colspan="5" class="empty">کاری با این فیلتر پیدا نشد.</td></tr>';
 }
 async function deleteMyTask(id) {
-  await apiPost('/api/task-calendar', { task_id: id, action: 'remove' });
   await sb.from('personal_tasks').delete().eq('id', id);
   loadMyTasks(); if (currentProfile.is_admin) loadTeamTasks();
 }
@@ -2119,7 +2054,6 @@ async function addTeamTask() {
   const { data, error } = await sb.from('personal_tasks').insert([{ user_id, title, due_date, priority, status: 'new', assigned_by: currentUser.id }]).select().single();
   document.getElementById('team-task-title').value=''; clearJalaliDate('team-task-date');
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (data && due_date) syncTaskCalendar(data.id, data.user_id !== currentUser.id);
   loadTeamTasks(); if (data && data.user_id === currentUser.id) loadMyTasks();
 }
 async function loadTeamTasks() {
@@ -2150,7 +2084,6 @@ async function loadTeamTasks() {
   }
 }
 async function deleteTeamTask(id) {
-  await apiPost('/api/task-calendar', { task_id: id, action: 'remove' });
   await sb.from('personal_tasks').delete().eq('id', id);
   loadTeamTasks();
 }
@@ -2590,7 +2523,6 @@ async function addOfficeTask() {
   const client_id = document.getElementById('task-client').value || null;
   if (!title) return;
   await sb.from('tasks').insert([{ title, date, client_id, status: 'new' }]);
-  if (date) apiPost('/api/create-event', { title, date });
   document.getElementById('task-title').value=''; clearJalaliDate('task-date');
   loadOfficeTasks();
 }
@@ -2891,7 +2823,6 @@ async function saveEditModal(table, id) {
   });
   const { error } = await sb.from(table).update(payload).eq('id', id);
   if (error) { alert('ذخیره نشد: ' + error.message); return; }
-  if (table === 'personal_tasks') apiPost('/api/task-calendar', { task_id: id, action: 'sync' });
   closeEditModal();
   if (currentProfile.is_admin) { refreshAllErpData(); if (document.getElementById('teamtasks-table')) loadTeamTasks(); }
   else renderTasksSection();
@@ -2904,10 +2835,4 @@ if (_attendanceQrParam === 'office') {
   sessionStorage.setItem('dast_pending_attendance_qr', 'office');
   window.history.replaceState({}, '', location.pathname);
   setTimeout(() => window.tryPendingAttendanceQR?.(), 900);
-}
-const _calParam = new URLSearchParams(location.search).get('calendar');
-if (_calParam) {
-  window.history.replaceState({}, '', location.pathname);
-  if (_calParam === 'connected') setTimeout(() => alert('گوگل کلندر با موفقیت وصل شد.'), 300);
-  else if (_calParam === 'error') setTimeout(() => alert('اتصال گوگل کلندر ناموفق بود، دوباره تلاش کن.'), 300);
 }
