@@ -37,16 +37,31 @@ export default async function handler(req, res) {
   const dayStartUtc = new Date(Date.UTC(tehranNow.getUTCFullYear(), tehranNow.getUTCMonth(), tehranNow.getUTCDate()) - TEHRAN_OFFSET_MS);
   const dayEndUtc = new Date(dayStartUtc.getTime() + 24 * 3600 * 1000);
 
-  const [sr, ar] = await Promise.all([
+  const [sr, ar, pr] = await Promise.all([
     fetch(restUrl('push_subscriptions?select=user_id,endpoint,subscription'), { headers: svcHeaders() }),
-    fetch(restUrl(`attendance?check_in=gte.${dayStartUtc.toISOString()}&check_in=lt.${dayEndUtc.toISOString()}&select=user_id,check_out`), { headers: svcHeaders() })
+    fetch(restUrl(`attendance?check_in=gte.${dayStartUtc.toISOString()}&check_in=lt.${dayEndUtc.toISOString()}&select=user_id,check_out`), { headers: svcHeaders() }),
+    fetch(restUrl('profiles?select=id,notification_preferences'), { headers: svcHeaders() })
   ]);
-  const subs = await sr.json(), att = await ar.json();
-  if (!Array.isArray(subs) || !Array.isArray(att)) { res.status(500).json({ error: 'db_error' }); return; }
-
+  if (!sr.ok || !ar.ok || !pr.ok) {
+    await Promise.all([sr.body?.cancel?.(), ar.body?.cancel?.(), pr.body?.cancel?.()]);
+    res.status(500).json({ error: 'db_error' }); return;
+  }
+  const [subs, att, profiles] = await Promise.all([sr.json(), ar.json(), pr.json()]);
+  if (!Array.isArray(subs) || !Array.isArray(att) || !Array.isArray(profiles)) {
+    res.status(500).json({ error: 'db_error' }); return;
+  }
   const hasEntry = new Set(att.map(a => a.user_id));
   const hasOpen = new Set(att.filter(a => !a.check_out).map(a => a.user_id));
-  const targets = subs.filter(s => (kind === 'in' ? !hasEntry.has(s.user_id) : hasOpen.has(s.user_id)));
+  const preferencesByUser = new Map(profiles.map(p => [
+    p.id,
+    p.notification_preferences && typeof p.notification_preferences === 'object' ? p.notification_preferences : {}
+  ]));
+  const preferenceKey = kind === 'in' ? 'attendance_check_in' : 'attendance_check_out';
+  const targets = subs.filter(s => {
+    const preferences = preferencesByUser.get(s.user_id) || {};
+    if (preferences.enabled === false || preferences[preferenceKey] === false) return false;
+    return kind === 'in' ? !hasEntry.has(s.user_id) : hasOpen.has(s.user_id);
+  });
 
   if (req.query.dry) { res.status(200).json({ status: 'dry', kind, would_send: targets.length, total_devices: subs.length }); return; }
 

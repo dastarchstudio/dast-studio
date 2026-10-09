@@ -41,6 +41,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    const profileResponse = await fetch(restUrl('profiles?id=eq.' + encodeURIComponent(caller.id) + '&select=notification_preferences'), {
+      headers: svcHeaders()
+    });
+    if (!profileResponse.ok) {
+      await profileResponse.body?.cancel?.();
+      res.status(502).json({ error: 'preference_lookup_failed' }); return;
+    }
+    const profileRows = await profileResponse.json();
+    const preferences = Array.isArray(profileRows) && profileRows[0]?.notification_preferences && typeof profileRows[0].notification_preferences === 'object'
+      ? profileRows[0].notification_preferences : {};
+    if (preferences.enabled === false) {
+      res.status(409).json({ error: 'notifications_disabled' }); return;
+    }
     const response = await fetch(restUrl('push_subscriptions?select=user_id,endpoint,subscription&user_id=eq.' + encodeURIComponent(caller.id)), {
       headers: svcHeaders()
     });

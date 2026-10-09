@@ -479,22 +479,64 @@ function notificationPreferenceEnabled(key = 'enabled') {
 }
 
 function notificationPreferenceKey(notification) {
-  if (notification?.type === 'task' || notification?.type === 'task_new') return 'task_new';
-  if (notification?.type === 'deadline' || notification?.type === 'task_due' || notification?.type === 'due') return 'task_due';
+  const type = String(notification?.type || '').toLowerCase().replace(/[\\s-]+/g, '_');
+  if (['task', 'task_new', 'new_task', 'task_assigned'].includes(type)) return 'task_new';
+  if (['deadline', 'task_due', 'due', 'task_deadline'].includes(type)) return 'task_due';
+  if (['attendance_check_in', 'attendance_in', 'check_in', 'checkin', 'entry'].includes(type)) return 'attendance_check_in';
+  if (['attendance_check_out', 'attendance_out', 'check_out', 'checkout', 'exit'].includes(type)) return 'attendance_check_out';
+  if (type.includes('attendance')) {
+    const content = String(notification?.title || '') + ' ' + String(notification?.body || '');
+    if (/(خروج|check[ _-]?out|checkout)/i.test(content)) return 'attendance_check_out';
+    if (/(ورود|check[ _-]?in|checkin|entry)/i.test(content)) return 'attendance_check_in';
+  }
   return 'enabled';
 }
 
-async function syncPushSubscriptionWithPreferences() {
-  if (!pushSupported() || !swReg) return;
-  const sub = await swReg.pushManager.getSubscription();
-  if (notificationPreferences.enabled && 'Notification' in window && Notification.permission === 'granted') {
-    if (!sub) await subscribeToPush();
-    return;
+// Prevent repeated clicks and out-of-order saves from making switches appear inconsistent.
+let notificationSettingsBusy = false;
+function setNotificationControlsBusy(busy) {
+  document.querySelectorAll('#section-notification-settings [data-preference-key]').forEach((el) => {
+    el.disabled = !!busy;
+    el.setAttribute('aria-busy', String(!!busy));
+  });
+  const testButton = document.getElementById('push-test-btn');
+  if (testButton) testButton.disabled = !!busy || !pushSupported() || Notification.permission !== 'granted' || !notificationPreferences.enabled;
+}
+async function ensurePushServiceWorker() {
+  if (!pushSupported()) return false;
+  try {
+    if (!swReg) await navigator.serviceWorker.register('/sw.js');
+    swReg = await navigator.serviceWorker.ready;
+    return !!swReg;
+  } catch (error) {
+    console.warn('Push service worker unavailable:', error?.name || 'unknown_error');
+    return false;
   }
-  if (sub) {
-    try { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); } catch (_) {}
+}
+async function unsubscribeCurrentPushSubscription() {
+  if (!pushSupported()) return true;
+  try {
+    const registration = swReg || await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    if (!sub) return true;
+    const result = await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint });
+    if (!result || result.status !== 'removed') return false;
     try { await sub.unsubscribe(); } catch (_) {}
+    return true;
+  } catch (error) {
+    console.warn('Push unsubscribe failed:', error?.name || 'unknown_error');
+    return false;
   }
+}
+
+async function syncPushSubscriptionWithPreferences() {
+  if (!pushSupported()) return true;
+  if (notificationPreferences.enabled && 'Notification' in window && Notification.permission === 'granted') {
+    const ready = await ensurePushServiceWorker();
+    if (!ready) return false;
+    return await subscribeToPush();
+  }
+  return await unsubscribeCurrentPushSubscription();
 }
 
 // ================= AUTH =================
@@ -822,12 +864,16 @@ function playBrandSectionMotion() {
 }
 
 function notificationToggle(key, title, description) {
-  const on = notificationPreferenceEnabled(key);
+  // Show each category's saved preference independently, even when the master switch is off.
+  const on = notificationPreferences[key] !== false;
   const icon = key === 'task_new' ? '📋' : key === 'task_due' ? '📅' : key === 'attendance_check_in' ? '🕘' : '🕔';
-  return '<button type="button" class="notification-preference-row" data-preference-key="' + key + '" data-preference-value="' + (!on) + '" onclick="setNotificationPreferenceFromElement(this)">';
-    + '<span class="notification-preference-icon">' + icon + '</span>'
-    + '<span class="notification-preference-copy"><strong>' + title + '</strong><small>' + description + '</small></span>'
+  const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(description);
+  return '<button type="button" class="notification-preference-row" data-preference-key="' + key + '" data-preference-value="' + (!on) + '" aria-pressed="' + on + '" aria-label="' + safeTitle + '" onclick="setNotificationPreferenceFromElement(this)">'
+    + '<span class="notification-preference-icon" aria-hidden="true">' + icon + '</span>'
+    + '<span class="notification-preference-copy"><strong>' + safeTitle + '</strong><small>' + safeDescription + '</small></span>'
     + '<span class="notification-switch ' + (on ? 'active' : '') + '" aria-hidden="true"><span></span></span>'
+    + '<span class="notification-toggle-state">' + (on ? 'روشن' : 'خاموش') + '</span>'
     + '</button>';
 }
 
@@ -839,9 +885,9 @@ function renderNotificationSettings() {
     + '<div class="notification-settings-top"><button type="button" class="btn small secondary" onclick="openSettingsCenter()">← بازگشت به تنظیمات</button></div>'
     + '<div class="card notification-preferences-hero">'
     + '<div class="notification-preference-head"><span class="profile-setting-icon">🔔</span><div><strong>دریافت اعلان‌ها</strong><div class="sr-meta">اعلان‌های سیستم، یادآوری‌ها و هشدارهای مرتبط با حساب</div></div>'
-    + '<button type="button" class="notification-switch ' + (masterOn ? 'active' : '') + '" data-preference-key="enabled" data-preference-value="' + (!masterOn) + '" onclick="setNotificationPreferenceFromElement(this)" aria-label="' + (masterOn ? 'خاموش کردن اعلان‌ها' : 'روشن کردن اعلان‌ها') + '"><span></span></button></div>'
+    + '<button type="button" class="notification-switch ' + (masterOn ? 'active' : '') + '" data-preference-key="enabled" data-preference-value="' + (!masterOn) + '" aria-pressed="' + masterOn + '" onclick="setNotificationPreferenceFromElement(this)" aria-label="' + (masterOn ? 'خاموش کردن اعلان‌ها' : 'روشن کردن اعلان‌ها') + '"><span></span></button><span class="notification-master-label">' + (masterOn ? 'روشن' : 'خاموش') + '</span></div>'
     + '<div class="notification-device-status ' + (permission === 'granted' && masterOn ? 'ok' : '') + '">'
-    + (!supported ? 'مرورگر فعلی اعلان وب را پشتیبانی نمی‌کند.' : permission === 'granted' && masterOn ? 'اعلان‌های این دستگاه فعال است.' : permission === 'denied' ? 'اجازه اعلان توسط مرورگر رد شده؛ از تنظیمات مرورگر فعالش کن.' : 'با روشن کردن کلید اصلی، اجازه اعلان دستگاه هم در صورت نیاز درخواست می‌شود.')
+    + (!supported ? 'مرورگر فعلی اعلان وب را پشتیبانی نمی‌کند.' : !masterOn ? 'اعلان‌های Push خاموش است؛ برای روشن کردن، کلید بالا را بزن.' : permission === 'granted' ? 'اعلان‌های Push این دستگاه فعال است.' : permission === 'denied' ? 'اجازه اعلان توسط مرورگر رد شده؛ از تنظیمات مرورگر فعالش کن.' : 'با روشن کردن کلید اصلی، اجازه اعلان دستگاه هم در صورت نیاز درخواست می‌شود.')
     + '</div></div>'
     + '<div class="notification-preference-group"><div class="notification-group-title"><strong>اعلان‌های سیستم</strong><span>کنترل هر نوع اعلان به‌صورت جداگانه</span></div>'
     + notificationToggle('task_new', 'وظیفه جدید', 'وقتی وظیفه‌ای برایت ایجاد یا به تو اختصاص داده می‌شود.')
@@ -858,30 +904,61 @@ function renderNotificationSettings() {
 
 async function setNotificationPreferenceFromElement(el) {
   const key = el?.dataset?.preferenceKey;
-  if (!key) return;
+  if (!key || notificationSettingsBusy) return;
   const value = String(el.dataset.preferenceValue) === 'true';
   await setNotificationPreference(key, value);
 }
 
 async function setNotificationPreference(key, value) {
+  if (notificationSettingsBusy || !['enabled', 'task_new', 'task_due', 'attendance_check_in', 'attendance_check_out'].includes(key)) return;
   const nextValue = !!value;
-  if (key === 'enabled' && nextValue && pushSupported() && 'Notification' in window && Notification.permission !== 'granted') {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      showToast('اجازه اعلان فعال نشد.');
-      renderNotificationSettingsIntoPage();
+  if (notificationPreferences[key] === nextValue) return;
+
+  notificationSettingsBusy = true;
+  setNotificationControlsBusy(true);
+  let subscribedBeforeSave = false;
+  try {
+    if (key === 'enabled' && nextValue) {
+      if (isIOS() && !isStandalone()) { showInstallHelp(); return; }
+      if (!pushSupported()) { showToast('این مرورگر اعلان Push را پشتیبانی نمی‌کند.'); return; }
+      const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showToast(permission === 'denied'
+          ? 'اجازه اعلان در تنظیمات مرورگر رد شده؛ ابتدا آن را فعال کن.'
+          : 'اجازه اعلان داده نشد؛ تنظیمات ذخیره نشد.');
+        return;
+      }
+      const ready = await ensurePushServiceWorker();
+      if (!ready) { showToast('سرویس اعلان آماده نشد؛ اتصال و تنظیمات مرورگر را بررسی کن.'); return; }
+      const subscribed = await subscribeToPush();
+      if (!subscribed) { showToast('اشتراک Push در سرور ثبت نشد؛ وضعیت قبلی حفظ شد.'); return; }
+      subscribedBeforeSave = true;
+    }
+
+    const saved = await saveNotificationPreferences({ [key]: nextValue });
+    if (!saved) {
+      if (key === 'enabled' && nextValue && subscribedBeforeSave) await unsubscribeCurrentPushSubscription();
       return;
     }
+
+    if (key === 'enabled' && !nextValue) {
+      const removed = await unsubscribeCurrentPushSubscription();
+      if (!removed) {
+        showToast('اعلان‌ها خاموش شد؛ پاک‌سازی اشتراک این دستگاه کامل نشد. دوباره امتحان کن.');
+        return;
+      }
+    }
+    if (key === 'enabled') showToast(nextValue ? 'اعلان‌ها فعال شدند ✅' : 'اعلان‌ها خاموش شدند.');
+    else showToast(nextValue ? 'این نوع اعلان فعال شد.' : 'این نوع اعلان خاموش شد.');
+  } catch (error) {
+    console.error('Notification preference update failed:', error?.name || 'unknown_error');
+    showToast('تنظیم اعلان ذخیره نشد؛ اتصال را بررسی کن و دوباره تلاش کن.');
+  } finally {
+    notificationSettingsBusy = false;
+    setNotificationControlsBusy(false);
+    renderNotificationSettingsIntoPage();
+    updateProfileSettingsUI();
   }
-  const ok = await saveNotificationPreferences({ [key]: nextValue });
-  if (!ok) return;
-  if (key === 'enabled') {
-    try { await syncPushSubscriptionWithPreferences(); } catch (_) {}
-  }
-  renderNotificationSettingsIntoPage();
-  updateProfileSettingsUI();
-  if (key === 'enabled' && nextValue) showToast('اعلان‌ها فعال شدند ✅');
-  else if (key === 'enabled') showToast('اعلان‌ها خاموش شدند.');
 }
 
 function renderNotificationSettingsIntoPage() {
