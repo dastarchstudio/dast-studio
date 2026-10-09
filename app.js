@@ -996,12 +996,35 @@ const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
 // ثبت این دستگاه برای دریافت اعلان‌های سرور (یادآور ورود و خروج)
+function subscriptionUsesCurrentVapidKey(sub) {
+  try {
+    const existingKey = sub?.options?.applicationServerKey;
+    // بعضی مرورگرها کلید اشتراک موجود را نمایش نمی‌دهند؛ در این حالت آن را بی‌دلیل باطل نمی‌کنیم.
+    if (!existingKey) return true;
+    const actual = new Uint8Array(existingKey);
+    const expected = b64ToUint8(VAPID_PUBLIC_KEY);
+    return actual.length === expected.length && actual.every((byte, index) => byte === expected[index]);
+  } catch (_) {
+    return false;
+  }
+}
 async function subscribeToPush() {
   if (!pushSupported() || !swReg) return false;
-  let sub = await swReg.pushManager.getSubscription();
-  if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY) });
-  const r = await apiPost('/api/push-subscribe', { subscription: sub.toJSON() });
-  return r && r.status === 'saved';
+  try {
+    let sub = await swReg.pushManager.getSubscription();
+    // اشتراک‌های ساخته‌شده با کلید VAPID قبلی با کلید جدید ارسال‌پذیر نیستند؛ با رضایت ثبت‌شدهٔ دستگاه نوسازی‌شان می‌کنیم.
+    if (sub && !subscriptionUsesCurrentVapidKey(sub)) {
+      try { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); } catch (_) {}
+      try { await sub.unsubscribe(); } catch (_) {}
+      sub = null;
+    }
+    if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY) });
+    const r = await apiPost('/api/push-subscribe', { subscription: sub.toJSON() });
+    return !!(r && r.status === 'saved');
+  } catch (error) {
+    console.warn('Push subscription failed:', error?.name || 'unknown_error');
+    return false;
+  }
 }
 async function enableNotifications() {
   if (isIOS() && !isStandalone()) { showInstallHelp(); return; }
