@@ -1894,10 +1894,29 @@ async function loadAttendanceAll() {
 }
 
 const JALALI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-function exportTimesheet() {
+async function exportTimesheet() {
   const sel = attendanceSelection('attendance-jy','attendance-jm');
   if (!sel) { alert('سال و ماه رو انتخاب کن'); return; }
-  window.open(`/api/export-timesheet?jy=${sel.jy}&jm=${sel.jm}`, '_blank');
+  try {
+    const response = await fetch(`/api/export-timesheet?jy=${sel.jy}&jm=${sel.jm}`, { headers: await authHeader() });
+    if (!response.ok) {
+      if (response.status === 401) showToast('برای دریافت خروجی، ورود معتبر و تنظیمات سرور لازم است.');
+      else if (response.status === 403) showToast('فقط مدیر دفتر مجاز به دریافت خروجی حضور و غیاب است.');
+      else showToast('دریافت خروجی انجام نشد. تنظیمات سرور را بررسی کنید.');
+      return;
+    }
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `timesheet-${sel.jy}-${sel.jm}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  } catch {
+    showToast('ارتباط با سرویس خروجی برقرار نشد.');
+  }
 }
 
 const HOLIDAYS_1405 = {

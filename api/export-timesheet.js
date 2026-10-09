@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import jalaali from 'jalaali-js';
+import { getCaller, svcHeaders, restUrl } from './_lib.js';
 
 const WEEKDAY_FA = ['یکشنبه', 'دوشنبه', 'سه شنبه', 'چهارشنبه', 'پنج شنبه', 'جمعه', 'شنبه'];
 const TEHRAN_OFFSET_MS = 3.5 * 3600 * 1000; // ایران ساعت تابستانی ندارد
@@ -18,6 +19,22 @@ function hm(totalMinutes) {
 }
 
 export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+
+  const caller = await getCaller(req);
+  if (!caller) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  if (!caller.is_admin) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+
   try {
     const jy = parseInt(req.query.jy);
     const jm = parseInt(req.query.jm);
@@ -35,12 +52,9 @@ export default async function handler(req, res) {
     const rangeStart = new Date(Date.UTC(firstG.gy, firstG.gm - 1, firstG.gd) - TEHRAN_OFFSET_MS);
     const rangeEnd = new Date(Date.UTC(lastG.gy, lastG.gm - 1, lastG.gd + 1) - TEHRAN_OFFSET_MS);
 
-    const headers = {
-      apikey: process.env.SUPABASE_SERVICE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
-    };
+    const headers = svcHeaders();
 
-    const profilesRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?select=*`, { headers });
+    const profilesRes = await fetch(restUrl('profiles?select=*'), { headers });
     const profiles = await profilesRes.json();
     if (!Array.isArray(profiles)) {
       res.status(500).json({ error: 'خواندن پروفایل‌ها ناموفق بود', details: profiles });
@@ -48,7 +62,7 @@ export default async function handler(req, res) {
     }
 
     const attRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/attendance?check_in=gte.${rangeStart.toISOString()}&check_in=lt.${rangeEnd.toISOString()}&select=*&order=check_in.asc`,
+      restUrl(`attendance?check_in=gte.${rangeStart.toISOString()}&check_in=lt.${rangeEnd.toISOString()}&select=*&order=check_in.asc`),
       { headers }
     );
     const attendance = await attRes.json();
