@@ -70,6 +70,11 @@ export default async function handler(req, res) {
       let processed = 0, failed = 0;
       for (const row of (Array.isArray(due) ? due : [])) {
         try {
+          const claim = await db('custom_notifications?id=eq.' + encodeURIComponent(row.id) + '&status=eq.scheduled', {
+            method: 'PATCH', headers: { Prefer: 'return=representation' },
+            body: JSON.stringify({ status: 'processing' })
+          });
+          if (!Array.isArray(claim) || claim.length === 0) continue;
           let targets = [];
           if (row.audience === 'all') {
             const profiles = await db('profiles?select=id,notification_preferences');
@@ -88,7 +93,12 @@ export default async function handler(req, res) {
           processed++;
         } catch (_) {
           failed++;
-          // Leave this item scheduled so the next cron tick can retry transient failures.
+          try {
+            await db('custom_notifications?id=eq.' + encodeURIComponent(row.id) + '&status=eq.processing', {
+              method: 'PATCH', headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ status: 'scheduled' })
+            });
+          } catch (_) {}
         }
       }
       json(res, 200, { status: 'done', processed, failed }); return;
