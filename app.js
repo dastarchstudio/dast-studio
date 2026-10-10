@@ -633,6 +633,7 @@ const NAV_ITEMS = [
   { id: 'tenders', label: 'مناقصه / مسابقه', icon: '◆', group: 'finance', adminOnly: true },
   { id: 'employees', label: 'کارکنان', icon: '♙', group: 'people' },
   { id: 'team', label: 'مدیریت تیم', icon: '⚙', group: 'people', adminOnly: true },
+  { id: 'announcements', label: 'اعلان‌های جمعی', icon: '🔔', group: 'people', adminOnly: true },
 ];
 
 const NAV_GROUPS = [
@@ -898,8 +899,93 @@ function renderNotificationSettings() {
     + notificationToggle('attendance_check_out', 'یادآوری ثبت خروج', 'یادآوری ساعت ۱۷:۰۰ در روزهای کاری.')
     + '</div>'
     + '<div class="card notification-settings-note"><strong>نکته</strong><span>خاموش کردن کلید اصلی، اعلان‌های Push این دستگاه را هم غیرفعال می‌کند. تاریخچه اعلان‌ها در پنل باقی می‌ماند.</span></div>'
+    + '<div class="card custom-notification-card">'
+    + '<div class="custom-notification-heading"><span>✍️</span><div><strong>اعلان شخصی جدید</strong><small>یک یادآوری با عنوان، متن و زمان دلخواه فقط برای خودت بساز.</small></div></div>'
+    + '<label for="personal-notif-title">نام اعلان</label><input id="personal-notif-title" maxlength="120" placeholder="مثلاً پیگیری جلسه با کارفرما">'
+    + '<label for="personal-notif-body">متن اعلان</label><textarea id="personal-notif-body" maxlength="1000" rows="3" placeholder="متن یا توضیحی که می‌خواهی برایت نمایش داده شود"></textarea>'
+    + '<label for="personal-notif-time">تاریخ و ساعت ارسال</label><input id="personal-notif-time" type="datetime-local">'
+    + '<button type="button" class="btn" onclick="createCustomNotification(\'personal\')">ثبت اعلان شخصی</button>'
+    + '<div id="personal-custom-notifications" class="custom-notification-list"><div class="empty">در حال بارگذاری اعلان‌ها…</div></div>'
+    + '</div>'
     + '<div class="card notification-settings-note"><strong>آزمایش Push</strong><span>اعلان آزمایشی فقط به دستگاه‌های متصل به حساب خودت ارسال می‌شود.</span><button type="button" id="push-test-btn" class="btn" onclick="sendPushTest()" ' + (!supported || permission !== 'granted' || !masterOn ? 'disabled' : '') + '>ارسال اعلان آزمایشی</button></div>'
     + '</div>';
+}
+
+
+function renderAdminAnnouncements() {
+  return '<div class="custom-notifications-page">'
+    + '<div class="card custom-notification-card"><div class="custom-notification-heading"><span>📣</span><div><strong>ساخت اعلان جمعی</strong><small>این اعلان برای همه اعضای دفتر در زمان تعیین‌شده ارسال می‌شود.</small></div></div>'
+    + '<label for="admin-notif-title">نام اعلان</label><input id="admin-notif-title" maxlength="120" placeholder="مثلاً جلسه هفتگی تیم">'
+    + '<label for="admin-notif-body">متن اعلان</label><textarea id="admin-notif-body" maxlength="1000" rows="4" placeholder="موضوع، توضیحات یا مواردی که باید همه بدانند"></textarea>'
+    + '<label for="admin-notif-time">تاریخ و ساعت ارسال</label><input id="admin-notif-time" type="datetime-local">'
+    + '<div class="custom-notification-hint">زمان بر اساس منطقه زمانی دستگاهی است که اعلان را می‌سازد. ارسال زمان‌بندی‌شده معمولاً تا یک دقیقه پس از زمان انتخابی انجام می‌شود.</div>'
+    + '<button type="button" class="btn" onclick="createCustomNotification(\'all\')">زمان‌بندی اعلان برای همه</button></div>'
+    + '<div class="card"><h2>اعلان‌های جمعی ثبت‌شده</h2><div id="admin-custom-notifications" class="custom-notification-list"><div class="empty">در حال بارگذاری…</div></div></div>'
+    + '</div>';
+}
+
+function customNotificationStatus(status) {
+  return ({ scheduled: 'زمان‌بندی‌شده', processing: 'در حال ارسال', sent: 'ارسال‌شده', failed: 'ناموفق', cancelled: 'لغوشده' })[status] || status || '—';
+}
+function customNotificationDate(value) {
+  if (!value) return 'بدون زمان';
+  try { return new Date(value).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }); }
+  catch (_) { return value; }
+}
+function renderCustomNotificationRows(rows, audience) {
+  const filtered = audience === 'personal'
+    ? rows.filter(row => row.audience === 'personal' && row.user_id === currentUser?.id || row.audience === 'all')
+    : rows.filter(row => row.audience === 'all');
+  if (!filtered.length) return '<div class="empty">هنوز اعلانی ثبت نشده است.</div>';
+  return filtered.map(row => '<article class="custom-notification-item">'
+    + '<div class="custom-notification-item-top"><strong>' + escapeHtml(row.title || 'بدون عنوان') + '</strong><span class="custom-notification-status status-' + escapeHtml(row.status || 'scheduled') + '">' + escapeHtml(customNotificationStatus(row.status)) + '</span></div>'
+    + '<p>' + escapeHtml(row.body || '') + '</p>'
+    + '<div class="custom-notification-meta"><span>🕒 ' + escapeHtml(customNotificationDate(row.scheduled_at)) + '</span><span>' + (row.audience === 'all' ? '📣 برای همه' : '👤 شخصی') + '</span></div>'
+    + '</article>').join('');
+}
+async function loadCustomNotifications(target) {
+  const mountId = target === 'admin' ? 'admin-custom-notifications' : 'personal-custom-notifications';
+  const mount = document.getElementById(mountId);
+  if (!mount) return;
+  try {
+    const response = await fetch('/api/custom-notifications', { headers: await authHeader(), cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'load_failed');
+    mount.innerHTML = renderCustomNotificationRows(Array.isArray(data.notifications) ? data.notifications : [], target);
+  } catch (_) {
+    mount.innerHTML = '<div class="empty">بارگذاری اعلان‌ها انجام نشد؛ دوباره تلاش کن.</div>';
+  }
+}
+async function createCustomNotification(audience) {
+  const admin = audience === 'all';
+  if (admin && !currentProfile?.is_admin) { alert('فقط مدیر می‌تواند اعلان جمعی بسازد.'); return; }
+  const prefix = admin ? 'admin' : 'personal';
+  const titleEl = document.getElementById(prefix + '-notif-title');
+  const bodyEl = document.getElementById(prefix + '-notif-body');
+  const timeEl = document.getElementById(prefix + '-notif-time');
+  const title = String(titleEl?.value || '').trim();
+  const body = String(bodyEl?.value || '').trim();
+  const localTime = timeEl?.value;
+  if (!title || !body || !localTime) { alert('نام اعلان، متن و تاریخ و ساعت ارسال را کامل کن.'); return; }
+  const scheduledAt = new Date(localTime);
+  if (!Number.isFinite(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now() - 60000) {
+    alert('زمان ارسال باید اکنون یا در آینده باشد.'); return;
+  }
+  const button = document.querySelector(admin ? '#section-announcements button[onclick*="createCustomNotification"]' : '#section-notification-settings button[onclick*="createCustomNotification"]');
+  if (button) { button.disabled = true; button.textContent = 'در حال ثبت…'; }
+  try {
+    const result = await apiPost('/api/custom-notifications', { title, body, audience, scheduled_at: scheduledAt.toISOString() });
+    if (!result || result.status !== 'scheduled') throw new Error(result?.error || 'create_failed');
+    if (titleEl) titleEl.value = '';
+    if (bodyEl) bodyEl.value = '';
+    if (timeEl) timeEl.value = '';
+    showToast(admin ? 'اعلان جمعی زمان‌بندی شد.' : 'اعلان شخصی زمان‌بندی شد.');
+    await loadCustomNotifications(admin ? 'admin' : 'personal');
+  } catch (error) {
+    alert('ثبت اعلان انجام نشد. ' + (error?.message || 'دوباره تلاش کن.'));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = admin ? 'زمان‌بندی اعلان برای همه' : 'ثبت اعلان شخصی'; }
+  }
 }
 
 async function setNotificationPreferenceFromElement(el) {
@@ -989,7 +1075,8 @@ function switchSection(id) {
     profile: renderProfile, employees: renderEmployees,
     'erp-tasks': renderErpTasks, costs: renderFixedCosts, tenders: renderTenders,
     'office-tasks': renderOfficeTasks,
-    'notification-settings': renderNotificationSettings
+    'notification-settings': renderNotificationSettings,
+    'announcements': renderAdminAnnouncements
   };
 
   if (id === 'attendance') renderAttendanceSection();
@@ -1000,6 +1087,8 @@ function switchSection(id) {
     if (id === 'dashboard') { enhanceDashboard(); loadDashboardExtras(); }
     if (id === 'profile') { updateProfileSettingsUI(); }
     if (id === 'employees') { loadEmployeeDirectory(); }
+    if (id === 'notification-settings') { loadCustomNotifications('personal'); }
+    if (id === 'announcements') { loadCustomNotifications('admin'); }
   }
 }
 
