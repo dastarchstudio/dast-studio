@@ -1379,8 +1379,9 @@ body.dark .studio-logo-dark{display:block!important}
     const key='dast-color-palette';
     function apply(id){
       const p=palettes.find(x=>x.id===id)||palettes[0],el=document.body;
-      ['--navy','--navy-light','--bg','--surface','--text','--muted','--border'].forEach((v,i)=>el.style.setProperty(v,p.colors[i]));
-      el.style.setProperty('--surface-2',p.id==='dast'?'#f8f9fc':p.colors[2]);
+      const colors=document.body.classList.contains('dark')?[p.colors[0],p.colors[1],'#11121a','#1a1b26','#f1f1f5','#a6a7b5','#30313f']:p.colors;
+      ['--navy','--navy-light','--bg','--surface','--text','--muted','--border'].forEach((v,i)=>el.style.setProperty(v,colors[i]));
+      el.style.setProperty('--surface-2',document.body.classList.contains('dark')?'#151621':(p.id==='dast'?'#f8f9fc':p.colors[2]));
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content',p.colors[0]);
       try{localStorage.setItem(key,p.id)}catch(_){}
       document.querySelectorAll('.dast-palette-option').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.palette===p.id)));
