@@ -61,7 +61,26 @@
   function dateLabel(v){
     if (!v) return 'ثبت نشده';
     var s = String(v).slice(0,10);
-    return s.replace(/-/g,'/');
+    var m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+    if (!m) return s.replace(/-/g,'/');
+    var d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), 12, 0, 0);
+    try {
+      return new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-arabext', {year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+    } catch (_) { return s.replace(/-/g,'/'); }
+  }
+  function jalaliField(id, value){
+    if (typeof window.jalaliDateField === 'function') return window.jalaliDateField(id, value || '');
+    if (typeof jalaliDateField === 'function') return jalaliDateField(id, value || '');
+    return input(id, 'تاریخ', value, 'date');
+  }
+  function readJalaliField(id){
+    if (typeof window.getJalaliDate === 'function') return window.getJalaliDate(id);
+    if (typeof getJalaliDate === 'function') return getJalaliDate(id);
+    var el=document.getElementById(id); return el ? (el.value || null) : null;
+  }
+  function localIsoDate(){
+    var d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
 
   function safeUrl(v){
@@ -616,7 +635,7 @@
         input('ml-price','قیمت فعلی',m&&m.price,'number')+
         input('ml-price-unit','واحد قیمت',m&&m.price_unit || 'مترمربع')+
         '<label>واحد پول</label><select id="ml-currency">'+optionsHtml([['تومان','تومان'],['ریال','ریال'],['دلار','دلار'],['یورو','یورو']],m&&m.currency || 'تومان')+'</select>'+
-        input('ml-price-date','تاریخ قیمت',m&&m.price_updated_at,'date')+
+        '<label>تاریخ قیمت (شمسی)</label>'+jalaliField('ml-price-date',m&&m.price_updated_at)+
         input('ml-price-source','منبع قیمت',m&&m.price_source,'text','پیش‌فاکتور / واتساپ / سایت...')+
         input('ml-stock','وضعیت موجودی',m&&m.stock_status || 'نامشخص')+
         input('ml-image','لینک تصویر',m&&m.image_url,'url','https://...')+
@@ -656,7 +675,7 @@
       price: document.getElementById('ml-price').value ? Number(document.getElementById('ml-price').value) : 0,
       price_unit: document.getElementById('ml-price-unit').value.trim() || 'مترمربع',
       currency: document.getElementById('ml-currency').value || 'تومان',
-      price_updated_at: document.getElementById('ml-price-date').value || null,
+      price_updated_at: readJalaliField('ml-price-date') || null,
       price_source: document.getElementById('ml-price-source').value.trim() || null,
       stock_status: document.getElementById('ml-stock').value.trim() || 'نامشخص',
       image_url: document.getElementById('ml-image').value.trim() || null,
@@ -1071,7 +1090,7 @@
       input('mlp-price','قیمت',record ? record.price : (m&&m.price),'number','مثلاً 2800000')+
       input('mlp-unit','واحد قیمت',record ? record.price_unit : (m&&m.price_unit||'مترمربع'))+
       '<label>واحد پول</label><select id="mlp-currency">'+optionsHtml([['تومان','تومان'],['ریال','ریال'],['دلار','دلار'],['یورو','یورو']],record ? record.currency : (m&&m.currency||'تومان'))+'</select>'+
-      input('mlp-date','تاریخ',record ? record.recorded_at : (m&&m.price_updated_at),'date')+
+      '<label>تاریخ ثبت قیمت (شمسی)</label>'+jalaliField('mlp-date',record ? record.recorded_at : (m&&m.price_updated_at))+
       '<label>شرکت</label><select id="mlp-supplier"><option value="">—</option>'+optionsHtml(ML.suppliers.map(function(s){return [s.id,s.name];}),record ? record.supplier_id : (m&&m.supplier_id))+'</select>'+
       input('mlp-source','منبع',record ? record.source : (m&&m.price_source), 'text','پیش‌فاکتور / واتساپ / سایت')+
     '</div>'+ta('mlp-note','یادداشت',record ? record.note : '')+
@@ -1091,7 +1110,7 @@
       supplier_id:document.getElementById('mlp-supplier').value||null,
       source:document.getElementById('mlp-source').value.trim()||null,
       note:document.getElementById('mlp-note').value.trim()||null,
-      recorded_at:document.getElementById('mlp-date').value||new Date().toISOString().slice(0,10)
+      recorded_at:readJalaliField('mlp-date')||localIsoDate()
     };
     if(priceId){
       var ur=await sb.from('material_price_history').update(p).eq('id',priceId);
