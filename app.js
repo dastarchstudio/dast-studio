@@ -1577,6 +1577,7 @@ async function refreshAllErpData() {
 function toggleDarkMode() {
   document.body.classList.toggle('dark');
   localStorage.setItem('dast-dark', document.body.classList.contains('dark') ? '1' : '0');
+  if (typeof window.refreshDastTheme === 'function') window.refreshDastTheme();
   updateDarkButton();
   updateStudioLogos();
   const group = document.querySelector('[data-nav-group]');
