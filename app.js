@@ -633,7 +633,7 @@ const NAV_ITEMS = [
   { id: 'tenders', label: 'مناقصه / مسابقه', icon: '◆', group: 'finance', adminOnly: true },
   { id: 'employees', label: 'کارکنان', icon: '♙', group: 'people' },
   { id: 'team', label: 'مدیریت تیم', icon: '⚙', group: 'people', adminOnly: true },
-  { id: 'announcements', label: 'اعلان‌های جمعی', icon: '🔔', group: 'people', adminOnly: true },
+  { id: 'announcements', label: 'اعلان‌های عمومی مدیر', icon: '📣', group: 'announcements-admin', adminOnly: true },
 ];
 
 const NAV_GROUPS = [
@@ -642,6 +642,7 @@ const NAV_GROUPS = [
   { id: 'crm', label: 'مدیریت دفتر', adminOnly: true },
   { id: 'finance', label: 'مالی و فرصت‌ها', adminOnly: true },
   { id: 'people', label: 'تیم و کارکنان' },
+  { id: 'announcements-admin', label: 'مدیریت اعلان‌ها', adminOnly: true },
 ];
 
 const SECTION_TITLES = {
@@ -660,6 +661,7 @@ function buildNav(activeId = activeSectionId) {
 
   activeSectionId = activeId || activeSectionId || 'dashboard';
   const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || currentProfile?.is_admin);
+  if (currentProfile?.is_admin) openNavGroups.add('announcements-admin');
   const visibleGroups = NAV_GROUPS.filter(group =>
     (!group.adminOnly || currentProfile?.is_admin) &&
     visibleItems.some(item => item.group === group.id)
@@ -903,7 +905,8 @@ function renderNotificationSettings() {
     + '<div class="custom-notification-heading"><span>✍️</span><div><strong>اعلان شخصی جدید</strong><small>یک یادآوری با عنوان، متن و زمان دلخواه فقط برای خودت بساز.</small></div></div>'
     + '<label for="personal-notif-title">نام اعلان</label><input id="personal-notif-title" maxlength="120" placeholder="مثلاً پیگیری جلسه با کارفرما">'
     + '<label for="personal-notif-body">متن اعلان</label><textarea id="personal-notif-body" maxlength="1000" rows="3" placeholder="متن یا توضیحی که می‌خواهی برایت نمایش داده شود"></textarea>'
-    + '<label for="personal-notif-time">تاریخ و ساعت ارسال</label><input id="personal-notif-time" type="datetime-local">'
+    + '<label>تاریخ ارسال (شمسی)</label>' + jalaliDateField('personal-notif-date')
+    + '<label for="personal-notif-time">ساعت ارسال</label><input id="personal-notif-time" type="time" dir="ltr">'
     + '<button type="button" class="btn" onclick="createCustomNotification(\'personal\')">ثبت اعلان شخصی</button>'
     + '<div id="personal-custom-notifications" class="custom-notification-list"><div class="empty">در حال بارگذاری اعلان‌ها…</div></div>'
     + '</div>'
@@ -917,8 +920,9 @@ function renderAdminAnnouncements() {
     + '<div class="card custom-notification-card"><div class="custom-notification-heading"><span>📣</span><div><strong>ساخت اعلان جمعی</strong><small>این اعلان برای همه اعضای دفتر در زمان تعیین‌شده ارسال می‌شود.</small></div></div>'
     + '<label for="admin-notif-title">نام اعلان</label><input id="admin-notif-title" maxlength="120" placeholder="مثلاً جلسه هفتگی تیم">'
     + '<label for="admin-notif-body">متن اعلان</label><textarea id="admin-notif-body" maxlength="1000" rows="4" placeholder="موضوع، توضیحات یا مواردی که باید همه بدانند"></textarea>'
-    + '<label for="admin-notif-time">تاریخ و ساعت ارسال</label><input id="admin-notif-time" type="datetime-local">'
-    + '<div class="custom-notification-hint">زمان بر اساس منطقه زمانی دستگاهی است که اعلان را می‌سازد. ارسال زمان‌بندی‌شده معمولاً تا یک دقیقه پس از زمان انتخابی انجام می‌شود.</div>'
+    + '<label>تاریخ ارسال (شمسی)</label>' + jalaliDateField('admin-notif-date')
+    + '<label for="admin-notif-time">ساعت ارسال</label><input id="admin-notif-time" type="time" dir="ltr">'
+    + '<div class="custom-notification-hint">تاریخ به تقویم شمسی وارد می‌شود. ساعت بر اساس منطقه زمانی دستگاه است و ارسال معمولاً تا یک دقیقه پس از زمان انتخابی انجام می‌شود.</div>'
     + '<button type="button" class="btn" onclick="createCustomNotification(\'all\')">زمان‌بندی اعلان برای همه</button></div>'
     + '<div class="card"><h2>اعلان‌های جمعی ثبت‌شده</h2><div id="admin-custom-notifications" class="custom-notification-list"><div class="empty">در حال بارگذاری…</div></div></div>'
     + '</div>';
@@ -929,7 +933,7 @@ function customNotificationStatus(status) {
 }
 function customNotificationDate(value) {
   if (!value) return 'بدون زمان';
-  try { return new Date(value).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }); }
+  try { return new Date(value).toLocaleString('fa-IR-u-ca-persian-nu-arabext', { dateStyle: 'long', timeStyle: 'short' }); }
   catch (_) { return value; }
 }
 function renderCustomNotificationRows(rows, audience) {
@@ -963,11 +967,13 @@ async function createCustomNotification(audience) {
   const titleEl = document.getElementById(prefix + '-notif-title');
   const bodyEl = document.getElementById(prefix + '-notif-body');
   const timeEl = document.getElementById(prefix + '-notif-time');
+  const dateId = prefix + '-notif-date';
   const title = String(titleEl?.value || '').trim();
   const body = String(bodyEl?.value || '').trim();
+  const jalaliDate = getJalaliDate(dateId);
   const localTime = timeEl?.value;
-  if (!title || !body || !localTime) { alert('نام اعلان، متن و تاریخ و ساعت ارسال را کامل کن.'); return; }
-  const scheduledAt = new Date(localTime);
+  if (!title || !body || !jalaliDate || !localTime) { alert('نام اعلان، متن، تاریخ شمسی و ساعت ارسال را کامل کن.'); return; }
+  const scheduledAt = new Date(jalaliDate + 'T' + localTime);
   if (!Number.isFinite(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now() - 60000) {
     alert('زمان ارسال باید اکنون یا در آینده باشد.'); return;
   }
@@ -979,12 +985,13 @@ async function createCustomNotification(audience) {
     if (titleEl) titleEl.value = '';
     if (bodyEl) bodyEl.value = '';
     if (timeEl) timeEl.value = '';
-    showToast(admin ? 'اعلان جمعی زمان‌بندی شد.' : 'اعلان شخصی زمان‌بندی شد.');
+    clearJalaliDate(dateId);
+    showToast(admin ? 'اعلان عمومی برای همه زمان‌بندی شد.' : 'اعلان شخصی زمان‌بندی شد.');
     await loadCustomNotifications(admin ? 'admin' : 'personal');
   } catch (error) {
     alert('ثبت اعلان انجام نشد. ' + (error?.message || 'دوباره تلاش کن.'));
   } finally {
-    if (button) { button.disabled = false; button.textContent = admin ? 'زمان‌بندی اعلان برای همه' : 'ثبت اعلان شخصی'; }
+    if (button) { button.disabled = false; button.textContent = admin ? 'ساخت اعلان عمومی و زمان‌بندی برای همه' : 'ثبت اعلان شخصی'; }
   }
 }
 
