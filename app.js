@@ -923,7 +923,7 @@ function renderAdminAnnouncements() {
     + '<label>تاریخ ارسال (شمسی)</label>' + jalaliDateField('admin-notif-date')
     + '<label for="admin-notif-time">ساعت ارسال</label><input id="admin-notif-time" type="time" dir="ltr">'
     + '<div class="custom-notification-hint">تاریخ به تقویم شمسی وارد می‌شود. ساعت بر اساس منطقه زمانی دستگاه است و ارسال معمولاً تا یک دقیقه پس از زمان انتخابی انجام می‌شود.</div>'
-    + '<button type="button" class="btn" onclick="createCustomNotification(\'all\')">زمان‌بندی اعلان برای همه</button></div>'
+    + '<button type="button" class="btn" onclick="createCustomNotification(\'all\')">ساخت اعلان عمومی و زمان‌بندی برای همه</button></div>'
     + '<div class="card"><h2>اعلان‌های جمعی ثبت‌شده</h2><div id="admin-custom-notifications" class="custom-notification-list"><div class="empty">در حال بارگذاری…</div></div></div>'
     + '</div>';
 }
