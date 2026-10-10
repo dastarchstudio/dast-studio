@@ -1238,6 +1238,60 @@ body.dark .studio-logo-dark{display:block!important}
   .dast-palette-panel{position:fixed;z-index:1001;left:18px;bottom:80px;width:min(320px,calc(100vw - 36px));padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 18px 50px rgba(20,20,40,.2);display:none}
   .dast-palette-panel.open{display:block}.dast-palette-panel h3{margin:0 0 5px;font-size:14px}.dast-palette-panel p{margin:0 0 12px;color:var(--muted);font-size:11px}.dast-palette-options{display:grid;gap:8px}.dast-palette-option{display:flex;align-items:center;gap:10px;width:100%;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;text-align:right;cursor:pointer}.dast-palette-option[aria-pressed=true]{border-color:var(--navy-light);box-shadow:0 0 0 2px rgba(91,81,177,.16)}.dast-palette-swatches{display:flex;gap:3px;direction:ltr}.dast-palette-swatches i{width:17px;height:24px;border-radius:5px;display:block}.dast-palette-option span:last-child{font-size:12px;font-weight:700}.dast-palette-reset{margin-top:10px;width:100%;padding:8px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font:inherit;font-size:11px;cursor:pointer}
   @media(max-width:700px){.dast-palette-launch{left:12px;bottom:78px;width:42px;height:42px;border-radius:13px}.dast-palette-panel{left:12px;bottom:128px}}
+
+  /* ===== Global theme tokens: all dashboard surfaces follow the selected theme ===== */
+  body{background:var(--page-gradient,var(--bg))!important;color:var(--text);color-scheme:light}
+  body.dark{color-scheme:dark;background:var(--page-gradient,var(--bg))!important}
+  .dast-theme-modes{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 0 12px}
+  .dast-theme-modes button{border:1px solid var(--border);border-radius:10px;padding:9px;background:var(--surface-2);color:var(--text);font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .dast-theme-modes button[aria-pressed=true]{border-color:var(--navy-light);box-shadow:0 0 0 2px color-mix(in srgb,var(--navy-light) 20%,transparent)}
+  body[data-palette]:not([data-palette="dast"]) .app-header,
+  body[data-palette]:not([data-palette="dast"]) nav,
+  body[data-palette]:not([data-palette="dast"]) .card,
+  body[data-palette]:not([data-palette="dast"]) .stat,
+  body[data-palette]:not([data-palette="dast"]) .stage-col,
+  body[data-palette]:not([data-palette="dast"]) .task-kanban-card,
+  body[data-palette]:not([data-palette="dast"]) .modal,
+  body[data-palette]:not([data-palette="dast"]) .settings-modal,
+  body[data-palette]:not([data-palette="dast"]) .notification-item,
+  body[data-palette]:not([data-palette="dast"]) .search-result,
+  body[data-palette]:not([data-palette="dast"]) .quick-action,
+  body[data-palette]:not([data-palette="dast"]) .ml-material-card,
+  body[data-palette]:not([data-palette="dast"]) .ml-stat-card,
+  body[data-palette]:not([data-palette="dast"]) .ml-tab{background:var(--surface)!important;color:var(--text);border-color:var(--border)}
+  body[data-palette]:not([data-palette="dast"]) .lead-card,
+  body[data-palette]:not([data-palette="dast"]) .task-board-column,
+  body[data-palette]:not([data-palette="dast"]) .task-board-column .task-board-head span,
+  body[data-palette]:not([data-palette="dast"]) .calendar-day,
+  body[data-palette]:not([data-palette="dast"]) .calendar-event-row,
+  body[data-palette]:not([data-palette="dast"]) .team-task-chip{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+  body.dark .app-header,body.dark nav,body.dark .card,body.dark .stat,body.dark .stage-col,
+  body.dark .lead-card,body.dark .task-board-column,body.dark .task-kanban-card,body.dark .modal,
+  body.dark .settings-modal,body.dark .login-shell,body.dark .login-card,body.dark .notification-item,
+  body.dark .search-result,body.dark .quick-action,body.dark .ml-material-card,body.dark .ml-stat-card,
+  body.dark .ml-tab,body.dark .ml-board-card,body.dark .ml-supplier-card,body.dark .ml-file-card{
+    background-color:var(--surface)!important;color:var(--text);border-color:var(--border)
+  }
+  body.dark .header-search,body.dark .header-icon-btn,body.dark .task-board-column .task-board-head span,
+  body.dark .team-task-chip,body.dark .calendar-day,body.dark .calendar-event-row,
+  body.dark .task-summary-chip,body.dark .dast-palette-option,body.dark .dast-theme-modes button{
+    background-color:var(--surface-2)!important;color:var(--text);border-color:var(--border)
+  }
+  body.dark input,body.dark select,body.dark textarea,body.dark option{background-color:var(--surface-2)!important;color:var(--text)!important;border-color:var(--border)}
+  body.dark .app-footer{background:var(--bg)!important;color:var(--muted)}
+  body.dark .app-header .header-search-text,body.dark .brand-copy span,body.dark .content-page-subtitle,
+  body.dark .app-footer span,body.dark .app-footer strong{color:var(--muted)}
+  body.dark .card h1,body.dark .card h2,body.dark .card h3,body.dark .card h4,
+  body.dark .card p,body.dark .card label,body.dark .card td,body.dark .card th,
+  body.dark .modal h1,body.dark .modal h2,body.dark .modal h3,body.dark .modal p,
+  body.dark .modal label,body.dark .settings-modal h1,body.dark .settings-modal h2,
+  body.dark .settings-modal h3,body.dark .settings-modal p,body.dark .settings-modal label,
+  body.dark .ml-material-card,body.dark .ml-material-card p,body.dark .ml-material-card span,
+  body.dark .ml-board-card,body.dark .ml-board-card p,body.dark .ml-board-card span{color:var(--text)}
+  body.dark .btn.secondary{color:var(--navy-light)!important;background:var(--surface-2)!important}
+  body.dark .dast-palette-panel{background:var(--surface)!important;color:var(--text);border-color:var(--border)}
+  body.dark .dast-palette-option[aria-pressed=true]{border-color:var(--navy-light)}
+  @media(prefers-reduced-motion:reduce){.dast-palette-panel,.dast-palette-option,.dast-theme-modes button{transition:none!important}}
 </style>
 </head>
 <body>
@@ -1365,10 +1419,13 @@ body.dark .studio-logo-dark{display:block!important}
 <script>
   // صفحه‌ی ورود هم از تنظیم حالت تیره‌ی کاربر پیروی کند
 
-  // انتخاب پالت رنگ شخصی؛ پالت فعلی دَست، گزینهٔ پیش‌فرض باقی می‌ماند.
+  // حالت نمایش باید پیش از اعمال پالت مشخص شود تا متغیرهای روشن روی تم تاریک سوار نشوند.
+  try { if (localStorage.getItem('dast-dark') === '1') document.body.classList.add('dark'); } catch (_) {}
+
+  // سیستم سراسری تم: رنگ‌ها برای همه‌ی صفحات و اجزای داشبورد از متغیرهای مشترک خوانده می‌شوند.
   (function(){
     const palettes=[
-      {id:'dast',name:'پالت اصلی دَست',colors:['#312a70','#5b51b1','#f4f5f9','#ffffff','#202235','#6b6d80','#e6e7ef']},
+      {id:'dast',name:'دَست',colors:['#312a70','#5b51b1','#f4f5f9','#ffffff','#202235','#6b6d80','#e6e7ef']},
       {id:'teal',name:'سبزآبی آرام',colors:['#146b68','#239b91','#f2f8f7','#ffffff','#183536','#657a7a','#dce9e7']},
       {id:'forest',name:'سبز جنگلی',colors:['#245743','#478568','#f2f6f1','#ffffff','#20352a','#68786d','#dce5dc']},
       {id:'terracotta',name:'آجری گرم',colors:['#934b3b','#c16b52','#faf4ef','#ffffff','#382824','#80716c','#eaded7']},
@@ -1376,28 +1433,62 @@ body.dark .studio-logo-dark{display:block!important}
       {id:'rose',name:'رز ملایم',colors:['#914e70','#bd7796','#fbf3f7','#ffffff','#382532','#806b78','#eedfe7']},
       {id:'ocean',name:'آبی اقیانوسی',colors:['#174b78','#287bb5','#f1f7fc','#ffffff','#1d2d3d','#697b8b','#dce7f1']}
     ];
-    const key='dast-color-palette';
-    function apply(id){
-      const p=palettes.find(x=>x.id===id)||palettes[0],el=document.body;
-      const colors=document.body.classList.contains('dark')?[p.colors[0],p.colors[1],'#11121a','#1a1b26','#f1f1f5','#a6a7b5','#30313f']:p.colors;
-      ['--navy','--navy-light','--bg','--surface','--text','--muted','--border'].forEach((v,i)=>el.style.setProperty(v,colors[i]));
-      el.style.setProperty('--surface-2',document.body.classList.contains('dark')?'#151621':(p.id==='dast'?'#f8f9fc':p.colors[2]));
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',p.colors[0]);
-      try{localStorage.setItem(key,p.id)}catch(_){}
+    const paletteKey='dast-color-palette';
+    const darkKey='dast-dark';
+    function getSavedPalette(){try{return localStorage.getItem(paletteKey)||'dast'}catch(_){return 'dast'}}
+    function apply(id,save=true){
+      const p=palettes.find(x=>x.id===id)||palettes[0];
+      const dark=document.body.classList.contains('dark');
+      const colors=dark
+        ? [p.colors[0],p.colors[1],'#11121a','#1a1b26','#f1f1f5','#a6a7b5','#30313f']
+        : p.colors;
+      const vars=['--navy','--navy-light','--bg','--surface','--text','--muted','--border'];
+      vars.forEach((v,i)=>document.body.style.setProperty(v,colors[i]));
+      document.body.style.setProperty('--surface-2',dark?'#20212d':(p.id==='dast'?'#f8f9fc':p.colors[2]));
+      document.body.style.setProperty('--page-gradient',dark?'linear-gradient(180deg,#11121a 0%,#0f1017 100%)':'linear-gradient(180deg,'+p.colors[2]+' 0%, '+p.colors[2]+' 48%, '+p.colors[6]+' 150%)');
+      document.body.dataset.palette=p.id;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#11121a':p.colors[0]);
       document.querySelectorAll('.dast-palette-option').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.palette===p.id)));
+      document.querySelectorAll('[data-theme-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.themeMode===(dark?'dark':'light'))));
+      if(save){try{localStorage.setItem(paletteKey,p.id)}catch(_){}}
     }
+    function setMode(mode){
+      const dark=mode==='dark';
+      document.body.classList.toggle('dark',dark);
+      try{localStorage.setItem(darkKey,dark?'1':'0')}catch(_){}
+      apply(getSavedPalette(),false);
+      const darkButton=document.getElementById('dark-btn');
+      if(darkButton){darkButton.innerHTML='<span aria-hidden="true">'+(dark?'☀':'☾')+'</span>';darkButton.title=dark?'تغییر به حالت روشن':'تغییر به حالت تیره';darkButton.setAttribute('aria-label',darkButton.title)}
+      if(typeof updateStudioLogos==='function') updateStudioLogos();
+    }
+    window.refreshDastTheme=()=>apply(getSavedPalette(),false);
     function mount(){
-      if(document.getElementById('dast-palette-launch'))return;
-      const button=document.createElement('button');button.id='dast-palette-launch';button.className='dast-palette-launch';button.type='button';button.textContent='🎨';button.title='تغییر پالت رنگ';button.setAttribute('aria-label','تغییر پالت رنگ');
-      const panel=document.createElement('section');panel.id='dast-palette-panel';panel.className='dast-palette-panel';panel.setAttribute('aria-label','انتخاب پالت رنگ');
-      panel.innerHTML='<h3>شخصی‌سازی رنگ سایت</h3><p>پالت اصلی دَست حفظ شده؛ هر زمان خواستی می‌توانی ظاهر را عوض کنی.</p><div class="dast-palette-options">'+palettes.map(p=>'<button type="button" class="dast-palette-option" data-palette="'+p.id+'" aria-pressed="false"><span class="dast-palette-swatches">'+p.colors.slice(0,4).map(x=>'<i style="background:'+x+'"></i>').join('')+'</span><span>'+p.name+'</span></button>').join('')+'</div><button type="button" class="dast-palette-reset">بازگشت به پالت اصلی دَست</button>';
+      if(document.getElementById('dast-palette-launch')){apply(getSavedPalette(),false);return}
+      const button=document.createElement('button');
+      button.id='dast-palette-launch';button.className='dast-palette-launch';button.type='button';
+      button.textContent='🎨';button.title='تنظیمات تم و رنگ';button.setAttribute('aria-label','تنظیمات تم و رنگ');
+      const panel=document.createElement('section');
+      panel.id='dast-palette-panel';panel.className='dast-palette-panel';panel.setAttribute('aria-label','تنظیمات تم و رنگ');
+      panel.innerHTML='<h3>ظاهر و رنگ‌بندی سایت</h3><p>حالت روشن یا تاریک را انتخاب کن؛ پالت انتخابی روی همه‌ی صفحات، نوارها و پنل‌ها اعمال می‌شود.</p>'+
+        '<div class="dast-theme-modes"><button type="button" data-theme-mode="light" aria-pressed="false">☀️ تم روشن</button><button type="button" data-theme-mode="dark" aria-pressed="false">🌙 تم تاریک</button></div>'+
+        '<div class="dast-palette-options">'+palettes.map(p=>'<button type="button" class="dast-palette-option" data-palette="'+p.id+'" aria-pressed="false"><span class="dast-palette-swatches">'+p.colors.slice(0,4).map(x=>'<i style="background:'+x+'"></i>').join('')+'</span><span>'+p.name+'</span></button>').join('')+'</div>'+
+        '<button type="button" class="dast-palette-reset">بازگشت به تم پیش‌فرض دَست</button>';
       document.body.append(button,panel);
       button.addEventListener('click',()=>panel.classList.toggle('open'));
-      panel.addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b)apply(b.dataset.palette);if(e.target.closest('.dast-palette-reset'))apply('dast')});
+      panel.addEventListener('click',e=>{
+        const mode=e.target.closest('[data-theme-mode]');
+        const palette=e.target.closest('[data-palette]');
+        if(mode)setMode(mode.dataset.themeMode);
+        if(palette)apply(palette.dataset.palette);
+        if(e.target.closest('.dast-palette-reset')){apply('dast');setMode('light')}
+      });
       document.addEventListener('click',e=>{if(!panel.contains(e.target)&&!button.contains(e.target))panel.classList.remove('open')});
-      let saved='dast';try{saved=localStorage.getItem(key)||'dast'}catch(_){}apply(saved);
+      apply(getSavedPalette(),false);
     }
-    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+    // اگر حالت تاریک از دکمه‌ی هدر تغییر کرد، پالت هم هم‌زمان دوباره اعمال شود.
+    const observer=new MutationObserver(()=>window.refreshDastTheme&&window.refreshDastTheme());
+    observer.observe(document.body,{attributes:true,attributeFilter:['class']});
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
   })();
 
     if (localStorage.getItem('dast-dark') === '1') document.body.classList.add('dark');
