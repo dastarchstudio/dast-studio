@@ -3,6 +3,8 @@ import { getCaller, svcHeaders, restUrl } from './_lib.js';
 const json = (res, status, body) => { res.status(status).json(body); };
 const clean = (value, max = 120) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
+const authAdminUrl = (path) => { const base = process.env.SUPABASE_URL; if (!base) throw new Error('missing_supabase_url'); return base.replace(/\\/+$/, '') + '/auth/v1/admin/' + path; };
+
 async function supabaseFetch(path, options = {}) {
   return fetch(restUrl(path), { ...options, headers: svcHeaders(options.headers || {}) });
 }
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
 
     let createdUserId = null;
     try {
-      const create = await fetch(restUrl('../auth/v1/admin/users'), {
+      const create = await fetch(authAdminUrl('users'), {
         method: 'POST',
         headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name } })
@@ -58,7 +60,7 @@ export default async function handler(req, res) {
       });
       if (!profile.ok) {
         await profile.body?.cancel?.();
-        await fetch(restUrl('../auth/v1/admin/users/' + encodeURIComponent(user.id)), {
+        await fetch(authAdminUrl('users/' + encodeURIComponent(user.id)), {
           method: 'DELETE',
           headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_KEY }
         }).catch(() => {});
@@ -67,7 +69,7 @@ export default async function handler(req, res) {
       return json(res, 201, { employee: (await profile.json())[0] || { id: user.id, full_name, email, job_title, role, employee_code, is_active: true, is_admin: false } });
     } catch {
       if (createdUserId) {
-        await fetch(restUrl('../auth/v1/admin/users/' + encodeURIComponent(createdUserId)), {
+        await fetch(authAdminUrl('users/' + encodeURIComponent(createdUserId)), {
           method: 'DELETE',
           headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_KEY }
         }).catch(() => {});
@@ -92,6 +94,15 @@ export default async function handler(req, res) {
     if (!Object.keys(patch).length) return json(res, 400, { error: 'empty_update' });
     // The administrator flag is intentionally not editable through this endpoint.
     try {
+      if (typeof body.is_active === 'boolean') {
+        const authUpdate = await fetch(authAdminUrl('users/' + encodeURIComponent(id)), {
+          method: 'PUT',
+          headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ban_duration: body.is_active ? 'none' : '876000h' })
+        });
+        if (!authUpdate.ok) { await authUpdate.body?.cancel?.(); return json(res, 502, { error: 'employee_auth_status_update_failed', message: 'تغییر وضعیت ورود انجام نشد؛ پروفایل تغییر نکرد.' }); }
+        await authUpdate.body?.cancel?.();
+      }
       const r = await supabaseFetch('profiles?id=eq.' + encodeURIComponent(id), {
         method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch)
       });
