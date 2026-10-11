@@ -1174,6 +1174,10 @@
   async function activate(){
     var s=document.getElementById('section-material-lab');
     if(!s) return;
+    if (typeof window.isInternUser === 'function' && window.isInternUser()) {
+      s.innerHTML='<div class="card"><div class="error-msg">دسترسی شما به آزمایشگاه متریال فعال نیست.</div></div>';
+      return;
+    }
     s.innerHTML='<div class="card"><div class="empty">در حال آماده‌سازی Material Lab…</div></div>';
     try{
       await load();
