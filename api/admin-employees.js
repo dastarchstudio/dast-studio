@@ -3,7 +3,7 @@ import { getCaller, svcHeaders, restUrl } from './_lib.js';
 const json = (res, status, body) => { res.status(status).json(body); };
 const clean = (value, max = 120) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
-const authAdminUrl = (path) => { const base = process.env.SUPABASE_URL; if (!base) throw new Error('missing_supabase_url'); return base.replace(/\\/+$/, '') + '/auth/v1/admin/' + path; };
+const authAdminUrl = (path) => { const base = process.env.SUPABASE_URL; if (!base) throw new Error('missing_supabase_url'); return base.replace(/\/+$/, '') + '/auth/v1/admin/' + path; };
 
 async function supabaseFetch(path, options = {}) {
   return fetch(restUrl(path), { ...options, headers: svcHeaders(options.headers || {}) });
