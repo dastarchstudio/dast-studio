@@ -660,7 +660,7 @@ function buildNav(activeId = activeSectionId) {
   if (!nav) return;
 
   activeSectionId = activeId || activeSectionId || 'dashboard';
-  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || currentProfile?.is_admin);
+  const visibleItems = NAV_ITEMS.filter(item => (!item.adminOnly || currentProfile?.is_admin) && !(item.id === 'material-lab' && isInternUser()));
   if (currentProfile?.is_admin) openNavGroups.add('announcements-admin');
   const visibleGroups = NAV_GROUPS.filter(group =>
     (!group.adminOnly || currentProfile?.is_admin) &&
@@ -1060,7 +1060,18 @@ function renderNotificationSettingsIntoPage() {
   section.innerHTML = renderNotificationSettings();
 }
 
+function isInternUser() {
+  if (!currentProfile || currentProfile.is_admin) return false;
+  const role = [currentProfile.access_role, currentProfile.user_role, currentProfile.role, currentProfile.role_title]
+    .filter(Boolean).join(' ').trim().toLowerCase();
+  return /کارآموز|intern|internship/.test(role);
+}
+
 function switchSection(id) {
+  if (id === 'material-lab' && isInternUser()) {
+    showToast('دسترسی شما به آزمایشگاه متریال فعال نیست.');
+    return;
+  }
   const previousSectionId = activeSectionId;
   activeSectionId = id;
   updateHeaderContext(id);
