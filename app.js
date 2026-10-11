@@ -1207,21 +1207,61 @@ async function subscribeToPush() {
     return false;
   }
 }
+function showNotificationOptInPrompt(force = false) {
+  if (!currentUser || !pushSupported() || !('Notification' in window)) return;
+  if (Notification.permission !== 'default') return;
+  try {
+    if (!force && sessionStorage.getItem('dast-notification-prompt-dismissed') === '1') return;
+  } catch (_) {}
+  const root = document.getElementById('edit-modal-root');
+  if (!root || root.querySelector('.notification-optin-overlay')) return;
+  root.insertAdjacentHTML('beforeend', `
+    <div class="overlay notification-optin-overlay" onclick="if(event.target===this){this.remove();try{sessionStorage.setItem('dast-notification-prompt-dismissed','1')}catch(_){}}">
+      <div class="modal notification-optin-modal" role="dialog" aria-modal="true" aria-labelledby="notification-optin-title">
+        <div style="font-size:38px;text-align:center;margin-bottom:8px">🔔</div>
+        <h3 id="notification-optin-title" style="text-align:center">اعلان‌های دَست را فعال می‌کنی؟</h3>
+        <p style="font-size:13px;line-height:2;color:var(--muted);text-align:center">برای دریافت یادآوری کارها، اعلان‌های سیستم و هشدارهای حضور و غیاب، اعلان‌ها را روی این دستگاه فعال کن.</p>
+        <div class="modal-actions" style="justify-content:center;flex-wrap:wrap">
+          <button type="button" class="btn secondary" onclick="dismissNotificationOptIn()">فعلاً نه</button>
+          <button type="button" class="btn" onclick="enableNotifications()">فعال‌سازی اعلان‌ها</button>
+        </div>
+      </div>
+    </div>`);
+}
+function dismissNotificationOptIn() {
+  document.querySelector('.notification-optin-overlay')?.remove();
+  try { sessionStorage.setItem('dast-notification-prompt-dismissed', '1'); } catch (_) {}
+}
 async function enableNotifications() {
-  if (isIOS() && !isStandalone()) { showInstallHelp(); return; }
-  if (!pushSupported()) { alert('این مرورگر از اعلان پشتیبانی نمی‌کند. از کروم یا سافاری استفاده کن.'); return; }
-  const p = await Notification.requestPermission();
-  if (p !== 'granted') { alert('اجازه‌ی اعلان داده نشد. از تنظیمات مرورگر/گوشی می‌توانی فعالش کنی.'); return; }
+  if (isIOS() && !isStandalone()) {
+    dismissNotificationOptIn();
+    showInstallHelp();
+    return;
+  }
+  if (!pushSupported()) { showToast('این مرورگر از اعلان Push پشتیبانی نمی‌کند.'); return; }
+  if (Notification.permission === 'denied') {
+    dismissNotificationOptIn();
+    showToast('اجازه اعلان در تنظیمات مرورگر رد شده؛ از تنظیمات مرورگر آن را فعال کن.');
+    return;
+  }
+  const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (p !== 'granted') {
+    dismissNotificationOptIn();
+    showToast('اجازه اعلان داده نشد؛ هر زمان خواستی از تنظیمات فعالش کن.');
+    return;
+  }
   const saved = await saveNotificationPreferences({ enabled: true });
   if (!saved) return;
-  const ok = await subscribeToPush();
-  const btn = document.getElementById('notif-btn');
+  const ready = await ensurePushServiceWorker();
+  const ok = ready && await subscribeToPush();
+  dismissNotificationOptIn();
   if (ok) {
-    if (btn) btn.classList.add('hidden');
     notifyUser('اعلان‌ها فعال شد ✅', 'یادآورهای فعال حساب برای این دستگاه در دسترس هستند.');
+    showToast('اعلان‌های دَست فعال شد.');
     updateProfileSettingsUI();
+    openSettingsCenter();
   } else {
-    alert('فعال‌سازی اعلان روی سرور ثبت نشد، دوباره تلاش کن.');
+    showToast('مجوز اعلان داده شد، اما ثبت Push کامل نشد؛ از تنظیمات دوباره تلاش کن.');
   }
 }
 
@@ -1320,12 +1360,11 @@ function showInstallHelp() {
 async function startTaskNotifications() {
   if ('serviceWorker' in navigator) { try { swReg = await navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
   updateInstallBtn();
-  const btn = document.getElementById('notif-btn');
   if (notificationPreferences.enabled && pushSupported() && Notification.permission === 'granted') {
     subscribeToPush().catch(() => {});
-    if (btn) btn.classList.add('hidden');
-  } else if (btn) {
-    btn.classList.remove('hidden');
+  } else {
+    // درخواست مجوز مرورگر فقط پس از کلیک کاربر از داخل پنجره‌ی راهنما انجام می‌شود.
+    setTimeout(showNotificationOptInPrompt, 900);
   }
   if (taskChannel) sb.removeChannel(taskChannel);
   taskChannel = sb.channel('tasks-' + currentUser.id)
