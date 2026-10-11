@@ -809,7 +809,7 @@ function openSettingsCenter() {
             <span class="settings-row-action">${notifGranted ? 'فعال ✓' : 'فعال‌سازی'}</span>
           </button>
 
-          <button type="button" class="settings-row" onclick="installApp();setTimeout(openSettingsCenter,500)">
+          <button type="button" class="settings-row" onclick="installApp(this)">
             <span class="settings-row-icon">📲</span>
             <span class="settings-row-copy"><strong>نصب اپ روی گوشی</strong><small>${standalone ? 'اپ روی این دستگاه نصب شده است' : ios ? 'راهنمای نصب روی آیفون' : 'نصب PWA روی صفحه اصلی'}</small></span>
             <span class="settings-row-action">${standalone ? 'نصب شده ✓' : 'نصب'}</span>
@@ -1271,9 +1271,37 @@ function updateInstallBtn() {
   const btn = document.getElementById('install-btn'); if (!btn) return;
   btn.classList.toggle('hidden', isStandalone() || !currentUser);
 }
-async function installApp() {
-  if (deferredInstall) { deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; updateInstallBtn(); }
-  else showInstallHelp();
+async function installApp(trigger) {
+  // بستن پنجره‌ی تنظیمات مانع افتادن راهنمای نصب پشت آن می‌شود.
+  const settingsOverlay = trigger?.closest('.settings-overlay');
+  if (settingsOverlay) settingsOverlay.remove();
+
+  if (isStandalone()) {
+    showToast('اپ دَست روی این دستگاه نصب شده است.');
+    return;
+  }
+
+  // prompt باید مستقیماً در واکنش به کلیک کاربر اجرا شود؛ مرورگر اجازه‌ی
+  // باز کردن پنجره‌ی نصب را به‌صورت خودکار یا با تأخیر نمی‌دهد.
+  const installEvent = deferredInstall;
+  if (installEvent) {
+    deferredInstall = null;
+    try {
+      await installEvent.prompt();
+      const choice = await installEvent.userChoice;
+      updateInstallBtn();
+      updateProfileSettingsUI();
+      if (choice?.outcome === 'accepted') {
+        showToast('درخواست نصب ثبت شد. چند لحظه صبر کن…');
+      }
+    } catch (error) {
+      console.warn('PWA install prompt failed:', error?.name || 'unknown_error');
+      showInstallHelp();
+    }
+    return;
+  }
+
+  showInstallHelp();
 }
 function showInstallHelp() {
   const ios = isIOS();
