@@ -82,8 +82,9 @@ function install(){
  pickIn.appendChild(panel);picker();
  const script=doc.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.async=true;doc.head.appendChild(script);
 }
-frame.addEventListener('load',()=>setTimeout(install,350));
-setTimeout(install,1200);
+frame.addEventListener('load',()=>setTimeout(install,100));
+const retry=setInterval(()=>{try{install();if(frame.contentDocument&&frame.contentDocument.getElementById('dast-auth-preview-style'))clearInterval(retry)}catch(e){}},250);
+setTimeout(()=>clearInterval(retry),30000);
 })();
 </script>
 </body></html>
