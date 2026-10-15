@@ -1523,7 +1523,7 @@ body.dark .studio-logo-dark{display:block!important}
   // سیستم سراسری تم: رنگ‌ها برای همه‌ی صفحات و اجزای داشبورد از متغیرهای مشترک خوانده می‌شوند.
   (function(){
     const palettes=[
-      {id:'dast',name:'دَست',colors:['#312a70','#5b51b1','#f4f5f9','#ffffff','#202235','#6b6d80','#e6e7ef']},
+      {id:'dast',name:'دَست روشن',colors:['#342D73','#4A4193','#F4F4EC','#FFFFFF','#23261A','#666B57','#DFE2D0']},
       {id:'teal',name:'سبزآبی آرام',colors:['#146b68','#239b91','#f2f8f7','#ffffff','#183536','#657a7a','#dce9e7']},
       {id:'forest',name:'سبز جنگلی',colors:['#245743','#478568','#f2f6f1','#ffffff','#20352a','#68786d','#dce5dc']},
       {id:'terracotta',name:'آجری گرم',colors:['#934b3b','#c16b52','#faf4ef','#ffffff','#382824','#80716c','#eaded7']},
@@ -1538,7 +1538,7 @@ body.dark .studio-logo-dark{display:block!important}
       const p=palettes.find(x=>x.id===id)||palettes[0];
       const dark=document.body.classList.contains('dark');
       const colors=dark
-        ? [p.colors[0],p.colors[1],'#11121a','#1a1b26','#f1f1f5','#a6a7b5','#30313f']
+        ? [p.colors[0],p.colors[1],'#0F1024','#1B1D36','#EEEFF7','#A4A8C4','#2E3157']
         : p.colors;
       const vars=['--navy','--navy-light','--bg','--surface','--text','--muted','--border'];
       vars.forEach((v,i)=>document.body.style.setProperty(v,colors[i]));
@@ -1568,7 +1568,7 @@ body.dark .studio-logo-dark{display:block!important}
       const panel=document.createElement('section');
       panel.id='dast-palette-panel';panel.className='dast-palette-panel';panel.setAttribute('aria-label','تنظیمات تم و رنگ');
       panel.innerHTML='<h3>ظاهر و رنگ‌بندی سایت</h3><p>حالت روشن یا تاریک را انتخاب کن؛ پالت انتخابی روی همه‌ی صفحات، نوارها و پنل‌ها اعمال می‌شود.</p>'+
-        '<div class="dast-theme-modes"><button type="button" data-theme-mode="light" aria-pressed="false">☀️ تم روشن</button><button type="button" data-theme-mode="dark" aria-pressed="false">🌙 تم تاریک</button></div>'+
+        '<div class="dast-theme-modes"><button type="button" data-theme-mode="light" aria-pressed="false">☀️ Dast Light · روشن</button><button type="button" data-theme-mode="dark" aria-pressed="false">🌙 Dast Dark · تاریک</button></div>'+
         '<div class="dast-palette-options">'+palettes.map(p=>'<button type="button" class="dast-palette-option" data-palette="'+p.id+'" aria-pressed="false"><span class="dast-palette-swatches">'+p.colors.slice(0,4).map(x=>'<i style="background:'+x+'"></i>').join('')+'</span><span>'+p.name+'</span></button>').join('')+'</div>'+
         '<button type="button" class="dast-palette-reset">بازگشت به تم پیش‌فرض دَست</button>';
       document.body.append(button,panel);
