@@ -1293,6 +1293,54 @@ body.dark .studio-logo-dark{display:block!important}
   body.dark .dast-palette-option[aria-pressed=true]{border-color:var(--navy-light)}
   @media(prefers-reduced-motion:reduce){.dast-palette-panel,.dast-palette-option,.dast-theme-modes button{transition:none!important}}
 
+  /* ===== Dast v5 palette bridge across existing functional ERP ===== */
+  :root {
+    --navy: #342D73;
+    --navy-light: #4A4193;
+    --bg: #F4F4EC;
+    --surface: #FFFFFF;
+    --surface-2: #F1F2E8;
+    --text: #23261A;
+    --muted: #666B57;
+    --border: #DFE2D0;
+    --success: #5B7314;
+    --warn: #D99A12;
+    --danger: #BD3106;
+    --radius: 18px;
+    --shadow-sm: 0 8px 28px rgba(29,32,70,.055);
+    --shadow-md: 0 16px 44px rgba(29,32,70,.09);
+  }
+  body {
+    background:
+      radial-gradient(1000px 560px at 92% -8%, rgba(74,65,147,.10), transparent 62%),
+      linear-gradient(180deg, #F7F8F1 0%, var(--bg) 55%, #F1F2E8 100%);
+    color: var(--text);
+  }
+  body.dark {
+    --navy: #4A4193;
+    --navy-light: #8178DC;
+    --bg: #0F1024;
+    --surface: #1B1D36;
+    --surface-2: #202340;
+    --text: #EEEFF7;
+    --muted: #A4A8C4;
+    --border: #2E3157;
+    --success: #A9C56A;
+    --warn: #E6BB54;
+    --danger: #FF8B70;
+    background:
+      radial-gradient(1000px 560px at 92% -8%, rgba(129,120,220,.10), transparent 62%),
+      linear-gradient(180deg, #14152A 0%, var(--bg) 100%);
+  }
+  body.dark .card, body.dark .stat, body.dark .stage-col,
+  body.dark .login-shell, body.dark .modal {
+    background-color: var(--surface);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  body.dark .login-brand {
+    background: linear-gradient(150deg, #342D73 0%, #4A4193 100%);
+  }
   /* ===== Redesign bridge: preserve legacy ERP, align typography and login motion ===== */
   :root { --font-latin: 'Montserrat', 'Vazirmatn', sans-serif; }
   .lat, code, kbd, [dir="ltr"], input[dir="ltr"], textarea[dir="ltr"] {
