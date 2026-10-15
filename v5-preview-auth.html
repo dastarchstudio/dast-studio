@@ -25,7 +25,7 @@ function install(){
  let doc;
  try{doc=frame.contentDocument;}catch(e){return setTimeout(install,300);}
  if(!doc)return setTimeout(install,250);
- if(!doc.querySelector('.pick-grid')){const skip=doc.querySelector('.skip');if(skip)skip.click();return setTimeout(install,300);}
+ if(!doc.querySelector('.pick-grid')){return setTimeout(install,300);}
  if(doc.getElementById('dast-auth-preview-style'))return;
  try{frame.contentWindow.sessionStorage.setItem('dast-in','0')}catch(e){}
  const style=doc.createElement('style');style.id='dast-auth-preview-style';style.textContent=`
