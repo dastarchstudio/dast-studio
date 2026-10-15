@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="/assets/logo_blue.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -81,6 +81,32 @@
   .jdate { display: inline-flex; gap: 4px; flex: 1; min-width: 230px; }
   .row .jdate select, .modal .jdate select, .jdate select { flex: 1; min-width: 0; width: auto; padding: 9px 4px; }
   .modal .jdate { display: flex; width: 100%; }
+
+  /* Mixed-script typography: Persian UI stays Vazirmatn; Latin labels, IDs and password fields use Montserrat. */
+  html, body, button, input, select, textarea { font-family:'Vazirmatn','Montserrat','Segoe UI',Tahoma,sans-serif; }
+  :lang(en), [dir="ltr"], input[dir="ltr"], .login-eyebrow { font-family:'Montserrat','Vazirmatn','Segoe UI',sans-serif; }
+  .login-eyebrow{font-size:10px;letter-spacing:.18em;font-weight:800;color:var(--navy-light);margin-bottom:10px}
+  .employee-picker{min-width:0}
+  @keyframes employeeLoginEnter{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .employee-login-enter{animation:employeeLoginEnter .24s cubic-bezier(.2,.8,.2,1) both}
+  .employee-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:2px 0 14px}
+  .employee-choice{display:flex;align-items:center;gap:10px;min-width:0;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);text-align:right;cursor:pointer;font-family:inherit}
+  .employee-choice:hover,.employee-choice:focus-visible{transform:translateY(-2px);border-color:var(--navy-light);box-shadow:0 8px 20px rgba(52,45,115,.11);outline:none}
+  .employee-avatar{width:40px;height:40px;display:grid;place-items:center;flex:none;border-radius:12px;background:linear-gradient(145deg,var(--navy),var(--navy-light));color:#fff;font-weight:800;font-size:17px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+  .employee-copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+  .employee-copy strong{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+  .employee-copy small,.selected-employee small{font-size:10px;color:var(--muted)}
+  .employee-arrow{font-size:17px;color:var(--navy-light);transition:transform .18s ease}
+  .employee-choice:hover .employee-arrow{transform:translateX(-3px)}
+  .employee-picker-note{font-size:10px;color:var(--muted);text-align:center;margin:4px 0 0}
+  .login-back{align-self:flex-start;border:0;background:transparent;color:var(--navy-light);font:600 12px 'Vazirmatn',sans-serif;padding:0 0 18px;cursor:pointer}
+  .selected-employee{display:flex;align-items:center;gap:11px;margin-bottom:18px;padding:11px;border:1px solid var(--border);border-radius:13px;background:var(--bg)}
+  .selected-employee>div{display:flex;flex-direction:column;gap:3px}
+  .selected-employee strong{font-size:14px}
+  .password-login .login-sub{margin-bottom:18px}
+  body.dark .employee-choice,body.dark .selected-employee{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+  @media(max-width:720px){.employee-grid{grid-template-columns:1fr 1fr;gap:7px}.employee-choice{padding:9px;gap:7px}.employee-avatar{width:34px;height:34px;border-radius:10px}.employee-copy strong{font-size:11px}}
+  @media(max-width:390px){.employee-grid{grid-template-columns:1fr}.employee-choice{padding:10px}.employee-copy strong{font-size:12px}}
 
   /* ===== LOGIN ===== */
   #login-screen{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));background:radial-gradient(1100px 560px at 100% 0%,rgba(74,65,147,.16),transparent 60%),var(--bg)}
@@ -1317,18 +1343,36 @@ body.dark .studio-logo-dark{display:block!important}
         <li>پیگیری سرنخ تا قرارداد و وصول مطالبات</li>
       </ul>
     </aside>
-    <form class="login-card" id="login-form" onsubmit="handleLoginSubmit(event)" novalidate>
-      <h1>ورود به پنل دفتر</h1>
-      <p class="login-sub">با نام کاربری و رمزی که مدیر دفتر برایت ساخته وارد شو.</p>
-      <label for="login-username">نام کاربری</label>
-      <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" dir="ltr" required>
+    <section class="login-card employee-picker" id="employee-picker" aria-labelledby="employee-picker-title">
+      <div class="login-eyebrow">DAST STUDIO · WORKSPACE</div>
+      <h1 id="employee-picker-title">کی پشت میزه؟</h1>
+      <p class="login-sub">اسمت رو انتخاب کن تا وارد پنل شخصی خودت بشی.</p>
+      <div class="employee-grid" id="employee-grid">
+        <button type="button" class="employee-choice" data-username="ehsan" data-name="احسان مروی"><span class="employee-avatar">ا</span><span class="employee-copy"><strong>احسان مروی</strong><small>مدیریت دفتر</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="pouyan" data-name="پویان کنی"><span class="employee-avatar">پ</span><span class="employee-copy"><strong>پویان کنی</strong><small>کارآموز</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="darya" data-name="دریا نورعلیئی"><span class="employee-avatar">د</span><span class="employee-copy"><strong>دریا نورعلیئی</strong><small>کارمند</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="shadi" data-name="شادی شیبانی"><span class="employee-avatar">ش</span><span class="employee-copy"><strong>شادی شیبانی</strong><small>کارآموز</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="ali" data-name="علی ابراهیمی"><span class="employee-avatar">ع</span><span class="employee-copy"><strong>علی ابراهیمی</strong><small>کارآموز</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="mohammadreza" data-name="محمد رضا کریمی"><span class="employee-avatar">م</span><span class="employee-copy"><strong>محمد رضا کریمی</strong><small>کارآموز</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="mahsa" data-name="مهسا صادقی"><span class="employee-avatar">م</span><span class="employee-copy"><strong>مهسا صادقی</strong><small>کارمند</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="elahe" data-name="مهندس الهه کاوه"><span class="employee-avatar">ا</span><span class="employee-copy"><strong>مهندس الهه کاوه</strong><small>مدیر</small></span><span class="employee-arrow">←</span></button>
+        <button type="button" class="employee-choice" data-username="mafee" data-name="مهندس محمد مافی"><span class="employee-avatar">م</span><span class="employee-copy"><strong>مهندس محمد مافی</strong><small>مدیر</small></span><span class="employee-arrow">←</span></button>
+      </div>
+      <p class="employee-picker-note">حساب‌ها و سطح دسترسی مطابق حساب‌های فعلی دفتر است.</p>
+    </section>
+    <form class="login-card password-login hidden" id="login-form" onsubmit="handleLoginSubmit(event)" novalidate>
+      <button type="button" class="login-back" onclick="returnToEmployeePicker()">← تغییر نام</button>
+      <div class="selected-employee"><span class="employee-avatar" id="selected-employee-avatar">د</span><div><small>ورود به حساب</small><strong id="selected-employee-name">کاربر دفتر</strong></div></div>
+      <h1>خوش برگشتی</h1>
+      <p class="login-sub">رمز عبور حساب خودت رو وارد کن.</p>
+      <input type="hidden" id="login-username" name="username" autocomplete="username">
       <label for="login-password">رمز عبور</label>
       <div class="pw-field">
         <input type="password" id="login-password" name="password" autocomplete="current-password" dir="ltr" required>
         <button type="button" class="pw-toggle" id="pw-toggle" onclick="togglePasswordVisibility()" aria-label="نمایش رمز">نمایش</button>
       </div>
       <div id="login-error" class="error-msg" role="alert" aria-live="polite"></div>
-      <button type="submit" class="btn login-submit" id="login-submit">ورود</button>
+      <button type="submit" class="btn login-submit" id="login-submit">ورود به پنل</button>
       <button type="button" class="login-link" onclick="showForgotPassword()">رمز عبورم را فراموش کرده‌ام</button>
     </form>
   </div>
@@ -1491,6 +1535,35 @@ body.dark .studio-logo-dark{display:block!important}
   })();
 
     if (localStorage.getItem('dast-dark') === '1') document.body.classList.add('dark');
+
+  // Staff picker uses the existing internal Supabase usernames; passwords are still verified by Supabase Auth.
+  (function mountEmployeePicker(){
+    const grid=document.getElementById('employee-grid');
+    if(!grid)return;
+    grid.addEventListener('click',event=>{
+      const choice=event.target.closest('.employee-choice');
+      if(!choice)return;
+      const picker=document.getElementById('employee-picker');
+      const form=document.getElementById('login-form');
+      document.getElementById('login-username').value=choice.dataset.username||'';
+      document.getElementById('selected-employee-name').textContent=choice.dataset.name||'';
+      document.getElementById('selected-employee-avatar').textContent=(choice.dataset.name||'د').trim().charAt(0);
+      document.getElementById('login-password').value='';
+      document.getElementById('login-error').textContent='';
+      picker.classList.add('hidden');
+      form.classList.remove('hidden');
+      form.classList.remove('employee-login-enter');
+      void form.offsetWidth;
+      form.classList.add('employee-login-enter');
+      document.getElementById('login-password').focus();
+    });
+  })();
+  function returnToEmployeePicker(){
+    document.getElementById('login-form').classList.add('hidden');
+    document.getElementById('employee-picker').classList.remove('hidden');
+    document.getElementById('login-password').value='';
+    document.getElementById('login-error').textContent='';
+  }
 
   async function handleLoginSubmit(e) {
     e.preventDefault();
