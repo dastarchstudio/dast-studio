@@ -6,7 +6,8 @@ This is a non-production integration branch. It does not change Supabase, Vercel
 
 ### Implemented in this branch
 - Added Montserrat alongside Vazirmatn in the existing ERP font load.
-- Applied the prototype's cream/purple palette and a readable dark palette through the existing ERP CSS variables.
+- Added `redesign-v5.css` as a visual layer for the existing ERP: cream/purple/ochre palette, dark sidebar with ochre active state, card/input/table styling, and branded login motion.
+- Linked the new stylesheet from the existing `index.html` without replacing its login form, Supabase integration, module roots, or legacy scripts.
 - Applied Montserrat to Latin text, LTR fields, code, and keyboard labels while keeping Persian UI text in Vazirmatn.
 - Added a branded, staggered entrance animation to the existing real login screen, with subtle orbital decoration and reduced-motion support.
 - Preserved the legacy ERP login/authentication path and existing app modules.
@@ -20,6 +21,9 @@ This is a non-production integration branch. It does not change Supabase, Vercel
 
 ## Required integration work before production
 
+The current branch applies the new design language to the old functional ERP shell; it does **not** copy the prototype's React/mock-data runtime into production. That is intentional because the prototype's employee/project records and local-only state are not connected to the real database.
+
+
 1. Build a module-by-module inventory from the legacy source and map each feature to the redesigned screen. Preserve all existing workflows, permissions, and database operations.
 2. Port the new visual shell and animations into the existing data/auth architecture rather than shipping the prototype's mock state.
 3. Implement the employee-name picker using a safe, minimal employee directory source. Do not expose credentials or use an unrestricted `SECURITY DEFINER` view for public name lookup. Confirm the existing directory-view security finding before relying on that view.
@@ -30,6 +34,6 @@ This is a non-production integration branch. It does not change Supabase, Vercel
 
 ## Verification status
 
-- Static source check: typography, palette variables, login motion, and reduced-motion CSS are present in `index.html`.
+- Static source check: stylesheet link resolves to a committed file on this branch; HTML link is inside `<head>`; CSS braces are balanced; responsive and reduced-motion rules are present; existing login fields and `app.js`, `material-lab.js`, `file-namgozar.js`, and `qr-security.js` script tags remain.
 - Existing `app.js` and database schema were not changed.
 - Browser-based visual regression, end-to-end auth tests, and full feature-by-feature integration are **not yet complete**.
