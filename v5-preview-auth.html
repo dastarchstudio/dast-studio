@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V5 Preview · Dast Studio</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f5ef}iframe{display:block;width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<iframe id="v5" title="پیش‌نمایش اصلی ERP دَست V5" src="/v5-preview.html"></iframe>
+<script>
+(function(){
+const frame=document.getElementById('v5');
+const staff=[
+{name:'علی ابراهیمی',role:'کارآموز',email:'ali@daftar.local',hue:'#4F7FA0',code:'ALI'},
+{name:'دریا نورعلیئی',role:'کارمند',email:'darya@daftar.local',hue:'#C46A0C',code:'DARYA'},
+{name:'احسان مروی',role:'بیکار',email:'ehsan@daftar.local',hue:'#342D73',code:'EHSAN'},
+{name:'مهندس الهه کاوه',role:'مدیر',email:'elahe@daftar.local',hue:'#5B7314',code:'ELAHE'},
+{name:'مهندس محمد مافی',role:'مدیر',email:'mafee@daftar.local',hue:'#2E7570',code:'MAFEE'},
+{name:'مهسا صادقی',role:'کارمند',email:'mahsa@daftar.local',hue:'#6B5B95',code:'MAHSA'},
+{name:'محمد رضا کریمی',role:'کارآموز',email:'mohammadreza@daftar.local',hue:'#BD3106',code:'MOHAMMADREZA'},
+{name:'پویان کنی',role:'کارآموز',email:'pouyan@daftar.local',hue:'#8A6742',code:'POUYAN'},
+{name:'شادی شیبانی',role:'کارآموز',email:'shadi@daftar.local',hue:'#9479B5',code:'SHADI'}
+];
+function install(){
+ let doc;
+ try{doc=frame.contentDocument;}catch(e){return setTimeout(install,300);}
+ if(!doc||!doc.querySelector('.pick-grid'))return setTimeout(install,250);
+ if(doc.getElementById('dast-auth-preview-style'))return;
+ try{frame.contentWindow.sessionStorage.setItem('dast-in','0')}catch(e){}
+ const style=doc.createElement('style');style.id='dast-auth-preview-style';style.textContent=`
+ .dast-auth-panel{width:min(650px,100%);margin:0 auto;animation:dastAuthIn .45s cubic-bezier(.2,.8,.2,1) both}
+ .dast-auth-panel .pick-card{cursor:pointer}
+ .dast-auth-form{margin-top:18px;padding:24px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 12px 30px -20px #1d204633}
+ .dast-auth-form label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+ .dast-auth-form input{display:block;width:100%;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);font:inherit;outline:none;box-sizing:border-box}
+ .dast-auth-form input:focus{border-color:var(--ochre,#C58A2B);box-shadow:0 0 0 3px color-mix(in srgb,var(--ochre,#C58A2B) 18%,transparent)}
+ .dast-auth-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+ .dast-auth-actions button{border:1px solid var(--line);border-radius:12px;padding:11px 16px;background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+ .dast-auth-actions .primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .dast-auth-msg{min-height:26px;margin-top:12px;font-size:13px;line-height:1.8;color:var(--muted)}
+ .dast-auth-back{background:none;border:0;color:var(--muted);font:inherit;cursor:pointer;padding:8px 0}
+ @keyframes dastAuthIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+ @media(max-width:600px){.dast-auth-form{padding:16px}.pick-grid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))!important}.pick-card{padding:14px!important}}
+ `;
+ doc.head.appendChild(style);
+ const grid=doc.querySelector('.pick-grid');
+ const pickIn=doc.querySelector('.pick-in');
+ const eyebrow=pickIn.querySelector('.eyebrow');
+ const heading=pickIn.querySelector('h1');
+ const subtitle=pickIn.querySelector('.sec-sub');
+ const panel=doc.createElement('div');panel.className='dast-auth-panel';
+ const gridMarkup=staff.map((p,i)=>'<button type="button" class="pick-card" data-staff="'+i+'" style="--hue:'+p.hue+'"><span class="pick-av">'+p.name.replace(/^مهندس /,'').trim().charAt(0)+'</span><b>'+p.name+'</b><small>'+p.role+'</small><span class="lat pick-code">'+p.code+'</span></button>').join('');
+ grid.innerHTML=gridMarkup;
+ const originalGrid=grid;
+ let selected=null, sb=null;
+ function msg(text,color){const m=doc.getElementById('dast-auth-msg');if(m){m.textContent=text;m.style.color=color||'var(--muted)';}}
+ function picker(){
+   selected=null;panel.innerHTML='';panel.style.display='none';originalGrid.style.display='grid';
+   eyebrow.textContent='DAST STUDIO · '+new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium'}).format(new Date());
+   heading.textContent='کی پشت میزه؟';subtitle.textContent='میز هر نفر با کارها و دسترسی خودش باز می‌شود.';
+ }
+ function loginView(person){
+   selected=person;originalGrid.style.display='none';panel.style.display='block';
+   panel.innerHTML='<button class="dast-auth-back" type="button" id="dast-auth-back">← بازگشت به فهرست کارکنان</button><div class="eyebrow">احراز هویت امن</div><h1 class="h-xl">ورود به حساب</h1><p class="sec-sub">'+person.name+'</p><form class="dast-auth-form" id="dast-auth-form"><label for="dast-auth-password">رمز عبور</label><input id="dast-auth-password" name="password" type="password" autocomplete="current-password" required placeholder="رمز عبورت را وارد کن"><div class="dast-auth-actions"><button class="primary" id="dast-auth-submit" type="submit">ورود به دَست</button><button type="button" id="dast-auth-forgot">فراموشی رمز عبور</button></div><div class="dast-auth-msg" id="dast-auth-msg" role="status" aria-live="polite"></div></form>';
+   doc.getElementById('dast-auth-back').onclick=picker;
+   doc.getElementById('dast-auth-forgot').onclick=()=>msg('برای بازنشانی رمز عبور حساب داخلی، لطفاً با مدیر دفتر تماس بگیر.','var(--muted)');
+   doc.getElementById('dast-auth-form').onsubmit=async function(ev){
+     ev.preventDefault();const input=doc.getElementById('dast-auth-password'),button=doc.getElementById('dast-auth-submit');
+     button.disabled=true;button.textContent='در حال بررسی…';msg('');
+     try{
+       if(!sb){const lib=frame.contentWindow.supabase;if(!lib)throw new Error('کتابخانهٔ ورود بارگذاری نشده است؛ صفحه را تازه‌سازی کن.');sb=lib.createClient('https://rzysrvrtkxongcxouywl.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck');}
+       const {data,error}=await sb.auth.signInWithPassword({email:person.email,password:input.value});if(error)throw error;
+       const {data:profile,error:profileError}=await sb.from('profiles').select('full_name,role_title,department').eq('id',data.user.id).maybeSingle();if(profileError)throw profileError;
+       if(!profile||profile.full_name!==person.name){await sb.auth.signOut();throw new Error('این حساب به نام انتخاب‌شده متصل نیست. لطفاً با مدیر دفتر تماس بگیر.');}
+       msg('ورود با موفقیت تأیید شد. این صفحه فقط پیش‌نمایش طراحی V5 است؛ برای ورود به ERP اصلی از صفحهٔ اصلی استفاده کن.','var(--success,#5B7314)');
+     }catch(err){msg(err.message==='Invalid login credentials'?'رمز عبور صحیح نیست. دوباره تلاش کن.':(err.message||'ورود انجام نشد؛ دوباره تلاش کن.'),'var(--danger,#BD3106)');}
+     finally{button.disabled=false;button.textContent='ورود به دَست';}
+   };
+   setTimeout(()=>doc.getElementById('dast-auth-password')?.focus(),80);
+ }
+ grid.addEventListener('click',function(ev){const card=ev.target.closest('[data-staff]');if(!card)return;ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();loginView(staff[Number(card.dataset.staff)]);},true);
+ pickIn.appendChild(panel);picker();
+ const script=doc.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.async=true;doc.head.appendChild(script);
+}
+frame.addEventListener('load',()=>setTimeout(install,350));
+setTimeout(install,1200);
+})();
+</script>
+</body></html>
