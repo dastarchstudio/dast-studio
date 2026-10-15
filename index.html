@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="/assets/logo_blue.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -1292,7 +1292,107 @@ body.dark .studio-logo-dark{display:block!important}
   body.dark .dast-palette-panel{background:var(--surface)!important;color:var(--text);border-color:var(--border)}
   body.dark .dast-palette-option[aria-pressed=true]{border-color:var(--navy-light)}
   @media(prefers-reduced-motion:reduce){.dast-palette-panel,.dast-palette-option,.dast-theme-modes button{transition:none!important}}
+
+  /* ===== Dast v5 palette bridge across existing functional ERP ===== */
+  :root {
+    --navy: #342D73;
+    --navy-light: #4A4193;
+    --bg: #F4F4EC;
+    --surface: #FFFFFF;
+    --surface-2: #F1F2E8;
+    --text: #23261A;
+    --muted: #666B57;
+    --border: #DFE2D0;
+    --success: #5B7314;
+    --warn: #D99A12;
+    --danger: #BD3106;
+    --radius: 18px;
+    --shadow-sm: 0 8px 28px rgba(29,32,70,.055);
+    --shadow-md: 0 16px 44px rgba(29,32,70,.09);
+  }
+  body {
+    background:
+      radial-gradient(1000px 560px at 92% -8%, rgba(74,65,147,.10), transparent 62%),
+      linear-gradient(180deg, #F7F8F1 0%, var(--bg) 55%, #F1F2E8 100%);
+    color: var(--text);
+  }
+  body.dark {
+    --navy: #4A4193;
+    --navy-light: #8178DC;
+    --bg: #0F1024;
+    --surface: #1B1D36;
+    --surface-2: #202340;
+    --text: #EEEFF7;
+    --muted: #A4A8C4;
+    --border: #2E3157;
+    --success: #A9C56A;
+    --warn: #E6BB54;
+    --danger: #FF8B70;
+    background:
+      radial-gradient(1000px 560px at 92% -8%, rgba(129,120,220,.10), transparent 62%),
+      linear-gradient(180deg, #14152A 0%, var(--bg) 100%);
+  }
+  body.dark .card, body.dark .stat, body.dark .stage-col,
+  body.dark .login-shell, body.dark .modal {
+    background-color: var(--surface);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  body.dark .login-brand {
+    background: linear-gradient(150deg, #342D73 0%, #4A4193 100%);
+  }
+  /* ===== Redesign bridge: preserve legacy ERP, align typography and login motion ===== */
+  :root { --font-latin: 'Montserrat', 'Vazirmatn', sans-serif; }
+  .lat, code, kbd, [dir="ltr"], input[dir="ltr"], textarea[dir="ltr"] {
+    font-family: var(--font-latin);
+    font-variant-numeric: tabular-nums;
+  }
+  .login-brand { position: relative; isolation: isolate; overflow: hidden; }
+  .login-brand::before, .login-brand::after {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 50%;
+    width: 230px; height: 230px; right: -94px; top: -100px;
+    box-shadow: 0 0 70px rgba(255,255,255,.055);
+    animation: dastLoginOrbit 16s linear infinite;
+  }
+  .login-brand::after {
+    width: 172px; height: 172px; right: -65px; top: -70px;
+    border-color: rgba(255,255,255,.08); animation-duration: 23s; animation-direction: reverse;
+  }
+  .login-brand > * { position: relative; z-index: 1; }
+  .login-studio-logo { animation: dastLoginLogo .9s cubic-bezier(.16,1,.3,1) both; }
+  .login-brand h2 { animation: dastLoginItem .55s .12s cubic-bezier(.16,1,.3,1) both; }
+  .login-brand p { animation: dastLoginItem .55s .2s cubic-bezier(.16,1,.3,1) both; }
+  .login-points li { animation: dastLoginItem .45s cubic-bezier(.16,1,.3,1) both; }
+  .login-points li:nth-child(1) { animation-delay: .24s; }
+  .login-points li:nth-child(2) { animation-delay: .31s; }
+  .login-points li:nth-child(3) { animation-delay: .38s; }
+  .login-card > * { animation: dastLoginItem .45s cubic-bezier(.16,1,.3,1) both; }
+  .login-card > *:nth-child(1) { animation-delay: .06s; }
+  .login-card > *:nth-child(2) { animation-delay: .11s; }
+  .login-card > *:nth-child(3) { animation-delay: .16s; }
+  .login-card > *:nth-child(4) { animation-delay: .21s; }
+  .login-card > *:nth-child(5) { animation-delay: .26s; }
+  .login-card > *:nth-child(6) { animation-delay: .31s; }
+  @keyframes dastLoginOrbit { to { transform: rotate(360deg); } }
+  @keyframes dastLoginLogo {
+    0% { opacity: 0; transform: translateY(12px) scale(.78) rotate(-5deg); filter: blur(5px); }
+    65% { opacity: 1; transform: translateY(-2px) scale(1.04) rotate(0); filter: blur(0); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes dastLoginItem {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .login-brand::before, .login-brand::after, .login-studio-logo,
+    .login-brand h2, .login-brand p, .login-points li, .login-card > * {
+      animation: none !important;
+    }
+  }
+
 </style>
+<link rel="stylesheet" href="/redesign-v5.css">
 </head>
 <body>
 <div id="brand-splash" class="brand-splash" aria-hidden="true">
@@ -1424,7 +1524,7 @@ body.dark .studio-logo-dark{display:block!important}
   // سیستم سراسری تم: رنگ‌ها برای همه‌ی صفحات و اجزای داشبورد از متغیرهای مشترک خوانده می‌شوند.
   (function(){
     const palettes=[
-      {id:'dast',name:'دَست',colors:['#312a70','#5b51b1','#f4f5f9','#ffffff','#202235','#6b6d80','#e6e7ef']},
+      {id:'dast',name:'دَست روشن',colors:['#342D73','#4A4193','#F4F4EC','#FFFFFF','#23261A','#666B57','#DFE2D0']},
       {id:'teal',name:'سبزآبی آرام',colors:['#146b68','#239b91','#f2f8f7','#ffffff','#183536','#657a7a','#dce9e7']},
       {id:'forest',name:'سبز جنگلی',colors:['#245743','#478568','#f2f6f1','#ffffff','#20352a','#68786d','#dce5dc']},
       {id:'terracotta',name:'آجری گرم',colors:['#934b3b','#c16b52','#faf4ef','#ffffff','#382824','#80716c','#eaded7']},
@@ -1439,7 +1539,7 @@ body.dark .studio-logo-dark{display:block!important}
       const p=palettes.find(x=>x.id===id)||palettes[0];
       const dark=document.body.classList.contains('dark');
       const colors=dark
-        ? [p.colors[0],p.colors[1],'#11121a','#1a1b26','#f1f1f5','#a6a7b5','#30313f']
+        ? [p.colors[0],p.colors[1],'#0F1024','#1B1D36','#EEEFF7','#A4A8C4','#2E3157']
         : p.colors;
       const vars=['--navy','--navy-light','--bg','--surface','--text','--muted','--border'];
       vars.forEach((v,i)=>document.body.style.setProperty(v,colors[i]));
@@ -1469,7 +1569,7 @@ body.dark .studio-logo-dark{display:block!important}
       const panel=document.createElement('section');
       panel.id='dast-palette-panel';panel.className='dast-palette-panel';panel.setAttribute('aria-label','تنظیمات تم و رنگ');
       panel.innerHTML='<h3>ظاهر و رنگ‌بندی سایت</h3><p>حالت روشن یا تاریک را انتخاب کن؛ پالت انتخابی روی همه‌ی صفحات، نوارها و پنل‌ها اعمال می‌شود.</p>'+
-        '<div class="dast-theme-modes"><button type="button" data-theme-mode="light" aria-pressed="false">☀️ تم روشن</button><button type="button" data-theme-mode="dark" aria-pressed="false">🌙 تم تاریک</button></div>'+
+        '<div class="dast-theme-modes"><button type="button" data-theme-mode="light" aria-pressed="false">☀️ Dast Light · روشن</button><button type="button" data-theme-mode="dark" aria-pressed="false">🌙 Dast Dark · تاریک</button></div>'+
         '<div class="dast-palette-options">'+palettes.map(p=>'<button type="button" class="dast-palette-option" data-palette="'+p.id+'" aria-pressed="false"><span class="dast-palette-swatches">'+p.colors.slice(0,4).map(x=>'<i style="background:'+x+'"></i>').join('')+'</span><span>'+p.name+'</span></button>').join('')+'</div>'+
         '<button type="button" class="dast-palette-reset">بازگشت به تم پیش‌فرض دَست</button>';
       document.body.append(button,panel);

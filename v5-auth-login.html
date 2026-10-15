@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101211">
+<title>ورود کارکنان | استودیو معماری دَست</title>
+<style>
+:root{color-scheme:dark;--bg:#101211;--panel:#191c1a;--line:#303632;--text:#f2f4f1;--muted:#a5ada7;--accent:#c7e0b1;--accentText:#172015;--danger:#ffb4ab}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#29372a 0,transparent 48%),var(--bg);color:var(--text);font-family:Tahoma,Arial,sans-serif;display:grid;place-items:center;padding:24px}
+main{width:min(100%,760px)}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}.brand{font-size:13px;letter-spacing:.06em;color:var(--muted)}.mark{border:1px solid #596259;border-radius:50%;width:42px;height:42px;display:grid;place-items:center;color:var(--accent);font-size:18px}
+.view{animation:rise .55s cubic-bezier(.2,.8,.2,1) both}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;margin-bottom:12px}h1{font-size:clamp(28px,5vw,44px);font-weight:500;letter-spacing:-.04em;margin:0 0 12px}p{color:var(--muted);line-height:1.9;margin:0 0 28px}.staff{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.person{background:linear-gradient(145deg,#202521,#171a18);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:18px 14px;text-align:right;min-height:90px;cursor:pointer;transition:transform .2s,border-color .2s,background .2s;font:inherit}.person:hover,.person:focus-visible{transform:translateY(-3px);border-color:#91ad81;outline:none;background:#252d25}.person strong{display:block;font-weight:500;font-size:14px;margin-bottom:8px}.person small{font-size:11px;color:var(--muted)}.person.selected{border-color:var(--accent);background:#263025}.panel{max-width:430px;margin:auto}.back{background:none;border:0;color:var(--muted);font:inherit;cursor:pointer;padding:8px 0 24px}.selected-name{color:var(--accent);font-size:14px;margin-bottom:24px}.field{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}input{width:100%;background:#0f120f;border:1px solid #414a42;border-radius:10px;padding:15px 14px;color:var(--text);font:inherit;outline:none}input:focus{border-color:var(--accent)}.submit{width:100%;margin-top:14px;background:var(--accent);color:var(--accentText);border:0;border-radius:10px;padding:14px;font:inherit;font-weight:bold;cursor:pointer}.submit:disabled{opacity:.55;cursor:wait}.links{display:flex;justify-content:space-between;gap:12px;margin-top:18px}.link{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:4px;font:inherit;font-size:12px;cursor:pointer}.message{min-height:28px;color:var(--danger);font-size:12px;line-height:1.8;margin-top:14px}.foot{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:#788079;font-size:11px;display:flex;justify-content:space-between;gap:10px}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}@media(max-width:560px){body{padding:18px}.staff{grid-template-columns:repeat(2,minmax(0,1fr))}.person{min-height:82px;padding:14px 12px}.top{margin-bottom:28px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<header class="top"><div class="brand">DAST STUDIO · INTERNAL ACCESS</div><div class="mark" aria-label="دَست">د</div></header>
+<section id="picker" class="view">
+<div class="eyebrow">ورود به فضای کاری</div><h1>خوش برگشتی.</h1><p>برای ادامه، نام خودت را انتخاب کن.</p>
+<div class="staff" id="staff" aria-label="فهرست کارکنان">
+<button class="person" data-name="علی ابراهیمی" data-email="ali@daftar.local"><strong>علی ابراهیمی</strong><small>کارآموز</small></button>
+<button class="person" data-name="دریا نورعلیئی" data-email="darya@daftar.local"><strong>دریا نورعلیئی</strong><small>کارمند</small></button>
+<button class="person" data-name="احسان مروی" data-email="ehsan@daftar.local"><strong>احسان مروی</strong><small>بیکار</small></button>
+<button class="person" data-name="مهندس الهه کاوه" data-email="elahe@daftar.local"><strong>مهندس الهه کاوه</strong><small>مدیر</small></button>
+<button class="person" data-name="مهندس محمد مافی" data-email="mafee@daftar.local"><strong>مهندس محمد مافی</strong><small>مدیر</small></button>
+<button class="person" data-name="مهسا صادقی" data-email="mahsa@daftar.local"><strong>مهسا صادقی</strong><small>کارمند</small></button>
+<button class="person" data-name="محمد رضا کریمی" data-email="mohammadreza@daftar.local"><strong>محمد رضا کریمی</strong><small>کارآموز</small></button>
+<button class="person" data-name="پویان کنی" data-email="pouyan@daftar.local"><strong>پویان کنی</strong><small>کارآموز</small></button>
+<button class="person" data-name="شادی شیبانی" data-email="shadi@daftar.local"><strong>شادی شیبانی</strong><small>کارآموز</small></button>
+</div></section>
+<section id="login" class="view panel" hidden>
+<button class="back" id="back">← بازگشت به فهرست کارکنان</button>
+<div class="eyebrow">احراز هویت امن</div><h1>ورود به حساب</h1><p class="selected-name" id="selectedName"></p>
+<form id="loginForm"><label class="field" for="password">رمز عبور</label><input id="password" name="password" type="password" autocomplete="current-password" required autofocus placeholder="رمز عبورت را وارد کن"><button class="submit" id="submit" type="submit">ورود به دَست</button><div class="message" id="message" role="status" aria-live="polite"></div></form>
+<div class="links"><button class="link" id="forgot" type="button">فراموشی رمز عبور</button><button class="link" id="change" type="button">انتخاب فرد دیگر</button></div>
+</section>
+<footer class="foot"><span>استودیو معماری دَست</span><span>دسترسی کارکنان</span></footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+'use strict';
+const SUPABASE_URL='https://rzysrvrtkxongcxouywl.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const picker=document.getElementById('picker'),login=document.getElementById('login'),selectedName=document.getElementById('selectedName'),password=document.getElementById('password'),message=document.getElementById('message'),submit=document.getElementById('submit');
+let selected=null;
+function showPicker(){selected=null;login.hidden=true;picker.hidden=false;password.value='';message.textContent='';document.querySelectorAll('.person').forEach(x=>x.classList.remove('selected'))}
+function showLogin(button){selected={name:button.dataset.name,email:button.dataset.email};document.querySelectorAll('.person').forEach(x=>x.classList.toggle('selected',x===button));selectedName.textContent=selected.name;picker.hidden=true;login.hidden=false;message.textContent='';password.value='';setTimeout(()=>password.focus(),80)}
+document.querySelectorAll('.person').forEach(button=>button.addEventListener('click',()=>showLogin(button)));
+document.getElementById('back').addEventListener('click',showPicker);document.getElementById('change').addEventListener('click',showPicker);
+document.getElementById('forgot').addEventListener('click',()=>{message.textContent='برای بازنشانی رمز عبور حساب داخلی، لطفاً با مدیر دفتر تماس بگیر. رمز عبور از داخل این صفحه ارسال یا بازیابی نمی‌شود.';});
+document.getElementById('loginForm').addEventListener('submit',async event=>{
+event.preventDefault();if(!selected)return;message.textContent='';submit.disabled=true;submit.textContent='در حال بررسی…';
+try{
+const {data,error}=await sb.auth.signInWithPassword({email:selected.email,password:password.value});
+if(error)throw error;
+const {data:profile,error:profileError}=await sb.from('profiles').select('full_name,role_title,department').eq('id',data.user.id).maybeSingle();
+if(profileError)throw profileError;
+if(!profile||profile.full_name!==selected.name){
+await sb.auth.signOut();
+throw new Error('این حساب به نام انتخاب‌شده متصل نیست. لطفاً با مدیر دفتر تماس بگیر.');
+}
+message.style.color='var(--accent)';
+message.textContent='ورود موفق بود؛ در حال انتقال به سامانه…';
+window.location.replace('/');
+}catch(error){message.style.color='var(--danger)';message.textContent=error.message==='Invalid login credentials'?'رمز عبور صحیح نیست. دوباره تلاش کن.':(error.message||'ورود انجام نشد؛ دوباره تلاش کن.');}
+finally{submit.disabled=false;submit.textContent='ورود به دَست';}
+});
+})();
+</script>
+</body>
+</html>
