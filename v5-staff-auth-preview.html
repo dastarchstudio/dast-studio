@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>پیش‌نمایش اتصال کارکنان v5 | دَست</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f5f5fa;--surface:#fff;--text:#1a1a2e;--muted:#6b6b80;--border:#e2e2ec;--brand:#342d73;--accent:#4a4193;--danger:#b42318;--ok:#177245}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.8}main{max-width:1040px;margin:32px auto;padding:0 16px}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}.brand{font-weight:800;font-size:22px;color:var(--brand)}.muted{color:var(--muted);font-size:13px}.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 10px 30px #28215a0b}h1{font-size:22px;margin:0 0 8px}h2{font-size:17px;margin:0 0 10px}.tag{display:inline-block;border-radius:99px;background:#eeedf7;color:var(--brand);font-size:12px;padding:2px 10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.person,.step{border:1px solid var(--border);border-radius:12px;padding:14px;background:#fff}.name{font-weight:800}.role,.dept{font-size:12px;color:var(--muted)}.status{padding:12px;border-radius:10px;background:#f3f2fb;color:var(--brand);font-size:13px}.error{background:#fff0ef;color:var(--danger)}button,a.button{border:0;border-radius:9px;padding:10px 15px;background:var(--brand);color:#fff;text-decoration:none;font:inherit;font-weight:700;cursor:pointer;display:inline-block}.secondary{background:#eeedf7;color:var(--brand)}.hidden{display:none!important}.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.foot{font-size:12px;color:var(--muted)}@media(max-width:600px){main{margin:16px auto}.panel{padding:16px}h1{font-size:20px}}
+</style>
+</head><body><main>
+<header class="head"><div><div class="brand">دَست | استودیو معماری</div><div class="muted">پیش‌نمایش اتصال کارکنان نسخه v5</div></div><span class="tag">Preview · Read-only</span></header>
+<section class="panel">
+<h1>فهرست واقعی کارکنان</h1>
+<p class="muted">این صفحه ورود جدیدی نمی‌سازد؛ نشست ورود فعلی ERP را بررسی می‌کند. اگر وارد نشده‌ای، از صفحه اصلی ERP وارد شو و سپس این صفحه را دوباره باز کن.</p>
+<div id="status" class="status">در حال بررسی نشست ERP…</div>
+<div id="signed" class="muted"></div>
+<div id="roster" class="grid" style="margin-top:14px"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><a class="button" href="/">رفتن به ورود ERP</a><button id="refresh" class="secondary">بررسی دوباره</button></div>
+</section>
+<section class="panel"><h2>ترتیب تکمیل بخش‌ها</h2><div class="steps">
+<div class="step"><strong>۱. کارکنان و هویت</strong><div class="muted">فهرست از دیتابیس خوانده می‌شود؛ انتخاب نام به‌تنهایی هویت را تغییر نمی‌دهد.</div></div>
+<div class="step"><strong>۲. داشبورد</strong><div class="muted">گام بعدی: تطبیق کارت‌ها و شاخص‌ها با داده‌های واقعی و حذف اعداد نمونه.</div></div>
+<div class="step"><strong>۳. حضور و غیاب</strong><div class="muted">بررسی جداگانه؛ هیچ ثبت آزمایشی در دیتابیس واقعی انجام نمی‌شود.</div></div>
+<div class="step"><strong>۴. پروژه‌ها و وظایف</strong><div class="muted">اتصال مرحله‌ای با رعایت نقش‌ها و سیاست‌های دسترسی موجود.</div></div>
+<div class="step"><strong>۵. آزمایشگاه متریال</strong><div class="muted">حفظ قالب تاریخ شمسی فعلی ERP.</div></div>
+<div class="step"><strong>۶. نام‌گذار فایل و اعلان‌ها</strong><div class="muted">بررسی کدها و رابط اعلان‌ها؛ بدون ارسال اعلان واقعی در تست.</div></div>
+</div></section>
+<section class="panel"><h2>محدوده این پیش‌نمایش</h2><p class="foot">فقط فیلدهای نام، عنوان شغلی و واحد از فهرست کارکنان خوانده می‌شود. این صفحه داده‌ای ایجاد، ویرایش یا حذف نمی‌کند. نسخه مستقل v5 هنوز داده‌های نمونه مرورگر دارد و تا زمان اتصال کامل هر ماژول، نباید جایگزین سامانه عملیاتی شود.</p></section>
+</main>
+<script>
+const URL='https://rzysrvrtkxongcxouywl.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck';
+const db=supabase.createClient(URL,KEY);const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function refresh(){
+ $('roster').innerHTML='';$('signed').textContent='';$('status').className='status';$('status').textContent='در حال بررسی نشست ERP…';
+ try{
+  const {data:{session},error:sessionError}=await db.auth.getSession();
+  if(sessionError)throw sessionError;
+  if(!session){$('status').textContent='نشست معتبر ERP پیدا نشد. از دکمه «رفتن به ورود ERP» استفاده کن.';return;}
+  const profile=await db.from('profiles').select('full_name,role_title,department').eq('id',session.user.id).maybeSingle();
+  if(profile.error)throw profile.error;
+  const {data,error}=await db.from('employee_directory').select('full_name,role_title,department').order('full_name');
+  if(error)throw error;
+  $('signed').textContent='نشست معتبر: '+(profile.data?.full_name||session.user.user_metadata?.full_name||'کاربر واردشده');
+  $('roster').innerHTML=(data||[]).map(p=>'<article class="person"><div class="name">'+esc(p.full_name||'نام ثبت نشده')+'</div><div class="role">'+esc(p.role_title||'عنوان شغلی ثبت نشده')+'</div><div class="dept">'+esc(p.department||'واحد ثبت نشده')+'</div></article>').join('');
+  $('status').textContent='فهرست با موفقیت به‌صورت فقط‌خواندنی دریافت شد ('+(data||[]).length+' نفر).';
+ }catch(e){$('status').className='status error';$('status').textContent='دریافت فهرست ممکن نشد؛ ممکن است نشست یا مجوز خواندن وجود نداشته باشد. هیچ تغییری اعمال نشده است.';}
+}
+$('refresh').addEventListener('click',refresh);refresh();
+</script></body></html>
