@@ -6,6 +6,7 @@ This is a non-production integration branch. It does not change Supabase, Vercel
 
 ### Implemented in this branch
 - Added Montserrat alongside Vazirmatn in the existing ERP font load.
+- Applied the prototype's cream/purple palette and a readable dark palette through the existing ERP CSS variables.
 - Applied Montserrat to Latin text, LTR fields, code, and keyboard labels while keeping Persian UI text in Vazirmatn.
 - Added a branded, staggered entrance animation to the existing real login screen, with subtle orbital decoration and reduced-motion support.
 - Preserved the legacy ERP login/authentication path and existing app modules.
@@ -29,6 +30,6 @@ This is a non-production integration branch. It does not change Supabase, Vercel
 
 ## Verification status
 
-- Static source check: typography and CSS additions are present in `index.html`.
+- Static source check: typography, palette variables, login motion, and reduced-motion CSS are present in `index.html`.
 - Existing `app.js` and database schema were not changed.
 - Browser-based visual regression, end-to-end auth tests, and full feature-by-feature integration are **not yet complete**.
