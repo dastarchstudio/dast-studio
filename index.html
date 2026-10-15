@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="/assets/logo_blue.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -1292,6 +1292,57 @@ body.dark .studio-logo-dark{display:block!important}
   body.dark .dast-palette-panel{background:var(--surface)!important;color:var(--text);border-color:var(--border)}
   body.dark .dast-palette-option[aria-pressed=true]{border-color:var(--navy-light)}
   @media(prefers-reduced-motion:reduce){.dast-palette-panel,.dast-palette-option,.dast-theme-modes button{transition:none!important}}
+
+  /* ===== Redesign bridge: preserve legacy ERP, align typography and login motion ===== */
+  :root { --font-latin: 'Montserrat', 'Vazirmatn', sans-serif; }
+  .lat, code, kbd, [dir="ltr"], input[dir="ltr"], textarea[dir="ltr"] {
+    font-family: var(--font-latin);
+    font-variant-numeric: tabular-nums;
+  }
+  .login-brand { position: relative; isolation: isolate; overflow: hidden; }
+  .login-brand::before, .login-brand::after {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 50%;
+    width: 230px; height: 230px; right: -94px; top: -100px;
+    box-shadow: 0 0 70px rgba(255,255,255,.055);
+    animation: dastLoginOrbit 16s linear infinite;
+  }
+  .login-brand::after {
+    width: 172px; height: 172px; right: -65px; top: -70px;
+    border-color: rgba(255,255,255,.08); animation-duration: 23s; animation-direction: reverse;
+  }
+  .login-brand > * { position: relative; z-index: 1; }
+  .login-studio-logo { animation: dastLoginLogo .9s cubic-bezier(.16,1,.3,1) both; }
+  .login-brand h2 { animation: dastLoginItem .55s .12s cubic-bezier(.16,1,.3,1) both; }
+  .login-brand p { animation: dastLoginItem .55s .2s cubic-bezier(.16,1,.3,1) both; }
+  .login-points li { animation: dastLoginItem .45s cubic-bezier(.16,1,.3,1) both; }
+  .login-points li:nth-child(1) { animation-delay: .24s; }
+  .login-points li:nth-child(2) { animation-delay: .31s; }
+  .login-points li:nth-child(3) { animation-delay: .38s; }
+  .login-card > * { animation: dastLoginItem .45s cubic-bezier(.16,1,.3,1) both; }
+  .login-card > *:nth-child(1) { animation-delay: .06s; }
+  .login-card > *:nth-child(2) { animation-delay: .11s; }
+  .login-card > *:nth-child(3) { animation-delay: .16s; }
+  .login-card > *:nth-child(4) { animation-delay: .21s; }
+  .login-card > *:nth-child(5) { animation-delay: .26s; }
+  .login-card > *:nth-child(6) { animation-delay: .31s; }
+  @keyframes dastLoginOrbit { to { transform: rotate(360deg); } }
+  @keyframes dastLoginLogo {
+    0% { opacity: 0; transform: translateY(12px) scale(.78) rotate(-5deg); filter: blur(5px); }
+    65% { opacity: 1; transform: translateY(-2px) scale(1.04) rotate(0); filter: blur(0); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes dastLoginItem {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .login-brand::before, .login-brand::after, .login-studio-logo,
+    .login-brand h2, .login-brand p, .login-points li, .login-card > * {
+      animation: none !important;
+    }
+  }
+
 </style>
 </head>
 <body>
