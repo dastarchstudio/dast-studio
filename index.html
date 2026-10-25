@@ -4334,6 +4334,19 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-dp button { border:0; border-radius:9px; padding:8px 14px; font:inherit; cursor:pointer; background:#4A4193; color:#fff; }
   #dast-dp #dast-dp-cancel { background:#ece9f6; color:#1d1a33; }
   .dp-btn { border:1px solid #cfc9e6; border-radius:10px; padding:7px 10px; background:#fff; color:#1d1a33; font:inherit; font-size:13px; cursor:pointer; min-width:120px; }
+  body.dast-tsv-on .content-shell > *:not(#dast-tsv):not(.content-page-heading) { display: none !important; }
+  #dast-tsv { display: none; }
+  body.dast-tsv-on #dast-tsv { display: block; }
+  #dast-tsv .tsv-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  #dast-tsv h2 { margin: 0; font-size: 18px; }
+  #dast-tsv .tsv-ctrl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #dast-tsv select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border, #e2e2ec); background: var(--surface, #fff); color: var(--text, #1a1a2e); font: inherit; }
+  #dast-tsv .tsv-xls { border: 0; border-radius: 10px; padding: 9px 14px; background: var(--navy, #342D73); color: #fff; font: inherit; cursor: pointer; }
+  #dast-tsv .tsv-table { width: 100%; border-collapse: collapse; background: var(--surface, #fff); border-radius: 14px; overflow: hidden; }
+  #dast-tsv th, #dast-tsv td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border, #e2e2ec); font-size: 14px; }
+  #dast-tsv th { background: var(--surface-2, #f8f9fc); color: var(--muted, #6b6b80); font-weight: 700; }
+  #dast-tsv tr.tsv-fri td { color: var(--muted, #6b6b80); background: rgba(91,81,177,.04); }
+  #dast-tsv .tsv-sum { margin-top: 12px; font-weight: 800; }
   .dg-fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: #fff; color: #b3261e; font-family: inherit; z-index: 2147483001; padding: 20px; text-align: center; }
 </style>
@@ -5190,6 +5203,141 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     var obs = new MutationObserver(refreshDates);
     obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
   }
+
+  // ---------- تایم‌شیت: روز به روز از حضور و غیاب، بدون پروژه، با خروجی Excel ----------
+  var tsv = { y: null, m: null, user: null };
+  var J_MONTHS_LONG = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+  function hmFa(min) {
+    if (min == null) return '—';
+    var h = Math.floor(min / 60), m = min % 60;
+    return faDigits((h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m);
+  }
+  function durFa(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return faDigits(h + ' ساعت و ' + m + ' دقیقه');
+  }
+  function localAttendance() {
+    try {
+      var st = JSON.parse(localStorage.getItem(STATE_KEY) || 'null');
+      return (st && st.data && Array.isArray(st.data.attendance)) ? st.data.attendance : [];
+    } catch (e) { return []; }
+  }
+  function ensureTsvPanel() {
+    var panel = document.getElementById('dast-tsv');
+    if (panel) return panel;
+    panel = document.createElement('section');
+    panel.id = 'dast-tsv';
+    var host = document.querySelector('.content-shell') || document.querySelector('main') || document.body;
+    host.appendChild(panel);
+    return panel;
+  }
+  function renderTimesheetView() {
+    var session = readSession();
+    if (!session) return;
+    var panel = ensureTsvPanel();
+    var today = jParts(new Date());
+    if (!tsv.y) { tsv.y = today.jy; tsv.m = today.jm; }
+    if (!tsv.user) tsv.user = session.user_id;
+    panel.innerHTML = '';
+
+    var head = document.createElement('div');
+    head.className = 'tsv-head';
+    var title = document.createElement('h2');
+    title.textContent = 'تایم‌شیت ' + J_MONTHS_LONG[tsv.m - 1] + ' ' + faDigits(tsv.y);
+    head.appendChild(title);
+
+    var ctrl = document.createElement('div');
+    ctrl.className = 'tsv-ctrl';
+    var ms = document.createElement('select');
+    J_MONTHS_LONG.forEach(function (n, i) { var o = document.createElement('option'); o.value = i + 1; o.textContent = n; if (i + 1 === tsv.m) o.selected = true; ms.appendChild(o); });
+    var ys = document.createElement('select');
+    for (var y = today.jy - 2; y <= today.jy + 1; y++) { var oy = document.createElement('option'); oy.value = y; oy.textContent = faDigits(y); if (y === tsv.y) oy.selected = true; ys.appendChild(oy); }
+    ctrl.appendChild(ms); ctrl.appendChild(ys);
+    var ps = document.createElement('select');
+    if (session.is_admin) {
+      staff.forEach(function (p) { var o = document.createElement('option'); o.value = p.id; o.textContent = p.full_name || ''; if (p.id === tsv.user) o.selected = true; ps.appendChild(o); });
+      ctrl.appendChild(ps);
+    }
+    var xls = document.createElement('button');
+    xls.type = 'button';
+    xls.className = 'tsv-xls';
+    xls.textContent = 'خروجی Excel';
+    ctrl.appendChild(xls);
+    head.appendChild(ctrl);
+    panel.appendChild(head);
+
+    ms.onchange = function () { tsv.m = +ms.value; renderTimesheetView(); };
+    ys.onchange = function () { tsv.y = +ys.value; renderTimesheetView(); };
+    if (ps.options.length) ps.onchange = function () { tsv.user = ps.value; renderTimesheetView(); };
+    xls.onclick = function () { exportTimesheetFile(); };
+
+    // روزهای ماه شمسی انتخابی
+    var rows = localAttendance().filter(function (x) { return x.userId === tsv.user; });
+    var table = document.createElement('table');
+    table.className = 'tsv-table';
+    var thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>روز</th><th>تاریخ</th><th>ورود</th><th>خروج</th><th>مدت کار</th></tr>';
+    table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    var totalMin = 0, workedDays = 0, openNow = false;
+    var iso = shamsiToIso(tsv.y, tsv.m, 1);
+    var day = 1;
+    while (iso) {
+      var p = jParts(new Date(iso + 'T12:00:00+03:30'));
+      if (p.jm !== tsv.m) break;
+      var entries = rows.filter(function (x) { return x.date === iso; }).sort(function (a, b) { return a.in - b.in; });
+      var tr = document.createElement('tr');
+      if (new Date(iso + 'T12:00:00+03:30').getDay() === 5) tr.className = 'tsv-fri';
+      var dayMin = 0, ins = [], outs = [];
+      entries.forEach(function (x) {
+        ins.push(hmFa(x.in));
+        if (x.out == null) { openNow = true; outs.push('در حال کار'); }
+        else { outs.push(hmFa(x.out)); dayMin += Math.max(0, x.out - x.in); }
+      });
+      if (entries.length) workedDays++;
+      totalMin += dayMin;
+      tr.innerHTML = '<td>' + faDigits(day) + '</td><td>' + faDigits(p.jy + '/' + (p.jm < 10 ? '0' : '') + p.jm + '/' + (p.jd < 10 ? '0' : '') + p.jd) + '</td>' +
+        '<td>' + (ins.join('، ') || '—') + '</td><td>' + (outs.join('، ') || '—') + '</td><td>' + (dayMin ? hmFa(dayMin) : '—') + '</td>';
+      tbody.appendChild(tr);
+      iso = nextIso(iso);
+      day++;
+    }
+    table.appendChild(tbody);
+    panel.appendChild(table);
+
+    var sum = document.createElement('div');
+    sum.className = 'tsv-sum';
+    sum.textContent = 'روزهای کاری: ' + faDigits(workedDays) + ' · جمع کل: ' + durFa(totalMin) + (openNow ? ' · یک جلسه‌ی باز داریم' : '');
+    panel.appendChild(sum);
+  }
+  function nextIso(iso) {
+    var d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+  function exportTimesheetFile() {
+    var s = readSession();
+    if (!s) return;
+    fetch('/api/export-timesheet?jy=' + tsv.y + '&jm=' + tsv.m, { headers: { authorization: 'Bearer ' + s.access_token } })
+      .then(function (r) { if (!r.ok) throw new Error('دریافت فایل انجام نشد'); return r.blob(); })
+      .then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'timesheet-' + tsv.y + '-' + tsv.m + '.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      })
+      .catch(function (e) { barMessage(e.message || 'خطا'); });
+  }
+  // وقتی منوی تایم‌شیت باز می‌شود، جدول روزانه نشان داده می‌شود و بقیه‌ی بخش‌ها پنهان می‌شوند
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('#top-nav button') : null;
+    if (!b) return;
+    var isTs = /تایم/.test(b.textContent || '');
+    document.body.classList.toggle('dast-tsv-on', isTs);
+    if (isTs) setTimeout(renderTimesheetView, 0);
+  }, true);
 
   // ---------- دکمه‌های نوار پایین ----------
   function wireUi() {
