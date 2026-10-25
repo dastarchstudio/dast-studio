@@ -4324,6 +4324,16 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-ts .dt-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; }
   #dast-ts #dast-ts-msg { font-size: 13px; }
   #dast-bar #dast-ts-btn { background: #ece9f6; color: #1d1a33; }
+  #dast-dp { position: fixed; inset: 0; z-index: 2147483200; display: none; align-items: center; justify-content: center;
+    background: rgba(20,16,40,0.45); padding: 14px; font-family: inherit; direction: rtl; }
+  #dast-dp .dp-card { background:#fff; color:#1d1a33; border-radius:16px; padding:16px; width:min(340px,100%); box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  #dast-dp .dp-title { font-weight:800; margin-bottom:10px; }
+  #dast-dp .dp-row { display:flex; gap:6px; }
+  #dast-dp select { flex:1; padding:8px; border-radius:9px; border:1px solid #cfc9e6; font:inherit; }
+  #dast-dp .dp-actions { display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+  #dast-dp button { border:0; border-radius:9px; padding:8px 14px; font:inherit; cursor:pointer; background:#4A4193; color:#fff; }
+  #dast-dp #dast-dp-cancel { background:#ece9f6; color:#1d1a33; }
+  .dp-btn { border:1px solid #cfc9e6; border-radius:10px; padding:7px 10px; background:#fff; color:#1d1a33; font:inherit; font-size:13px; cursor:pointer; min-width:120px; }
   .dg-fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: #fff; color: #b3261e; font-family: inherit; z-index: 2147483001; padding: 20px; text-align: center; }
 </style>
@@ -4354,6 +4364,21 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     <div class="dt-foot">
       <button type="button" id="dast-ts-add">+ افزودن ردیف</button>
       <span id="dast-ts-msg"></span>
+    </div>
+  </div>
+</div>
+
+<div id="dast-dp" style="display:none">
+  <div class="dp-card">
+    <div class="dp-title">انتخاب تاریخ شمسی</div>
+    <div class="dp-row">
+      <select id="dast-dp-d"></select>
+      <select id="dast-dp-m"></select>
+      <select id="dast-dp-y"></select>
+    </div>
+    <div class="dp-actions">
+      <button type="button" id="dast-dp-cancel">انصراف</button>
+      <button type="button" id="dast-dp-ok">تأیید</button>
     </div>
   </div>
 </div>
@@ -4924,6 +4949,119 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     $('dast-ts-close').onclick = closeTimesheetAdmin;
   }
 
+  // ---------- تبدیل تاریخ‌های میلادی به شمسی در کل سایت ----------
+  var J_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+  var faDigits = function (s) { return String(s).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); };
+  function jParts(date) {
+    var parts = new Intl.DateTimeFormat('en-u-ca-persian', { timeZone: 'Asia/Tehran', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(date);
+    var o = {};
+    parts.forEach(function (p) { o[p.type] = parseInt(p.value, 10); });
+    return { jy: o.year, jm: o.month, jd: o.day };
+  }
+  // ISO میلادی (YYYY-MM-DD) → "۱۴۰۵/۰۸/۰۲"
+  function isoToShamsi(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    if (!m) return '';
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+    var p = jParts(d);
+    return faDigits(p.jy + '/' + (p.jm < 10 ? '0' : '') + p.jm + '/' + (p.jd < 10 ? '0' : '') + p.jd);
+  }
+  function shamsiToIso(jy, jm, jd) {
+    var guess = Date.UTC(jy + 621, 2, 21, 12) + ((jm - 1) * 30.5 + (jd - 1)) * 86400000;
+    for (var k = -45; k <= 45; k++) {
+      var d = new Date(guess + k * 86400000);
+      var p = jParts(d);
+      if (p.jy === jy && p.jm === jm && p.jd === jd) {
+        return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1 < 10 ? '0' : '') + (d.getUTCMonth() + 1) + '-' + (d.getUTCDate() < 10 ? '0' : '') + d.getUTCDate();
+      }
+    }
+    return '';
+  }
+  // متن‌های ISO داخل صفحه را به شمسی تبدیل می‌کند (ورودی‌ها دست‌نخورده می‌مانند)
+  function convertTextDates(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var nodes = [], n;
+    while ((n = walker.nextNode())) {
+      var p = n.parentNode;
+      if (!p || !/\d{4}-\d{2}-\d{2}/.test(n.nodeValue)) continue;
+      if (/^(SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION)$/.test(p.nodeName)) continue;
+      if (p.closest && p.closest('#dast-bar,#dast-pin,#dast-ts,#dast-dp')) continue;
+      nodes.push(n);
+    }
+    nodes.forEach(function (node) {
+      node.nodeValue = node.nodeValue.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, function (all) {
+        var s = isoToShamsi(all);
+        return s || all;
+      });
+    });
+  }
+  // ورودی تاریخ میلادی را با انتخابگر شمسی جایگزین می‌کند؛ مقدار واقعی همچنان همان input است
+  var dpTarget = null;
+  function enhanceDateInputs(root) {
+    var inputs = (root || document).querySelectorAll('input[type=date]');
+    for (var i = 0; i < inputs.length; i++) {
+      var inp = inputs[i];
+      if (inp.getAttribute('data-shamsi')) { refreshDateLabel(inp); continue; }
+      inp.setAttribute('data-shamsi', '1');
+      inp.style.display = 'none';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dp-btn';
+      btn.onclick = function (target) { return function (e) { e.preventDefault(); openDatePicker(target); }; }(inp);
+      inp.parentNode.insertBefore(btn, inp.nextSibling);
+      inp._dpBtn = btn;
+      refreshDateLabel(inp);
+    }
+  }
+  function refreshDateLabel(inp) {
+    if (!inp._dpBtn) return;
+    inp._dpBtn.textContent = inp.value ? isoToShamsi(inp.value) : 'انتخاب تاریخ';
+  }
+  function setInputValue(inp, value) {
+    var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(inp, value);
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    refreshDateLabel(inp);
+  }
+  function openDatePicker(inp) {
+    dpTarget = inp;
+    var box = $('dast-dp');
+    var today = jParts(new Date());
+    var cur = inp.value ? jParts(new Date(inp.value + 'T12:00:00+03:30')) : today;
+    var ds = $('dast-dp-d'), ms = $('dast-dp-m'), ys = $('dast-dp-y');
+    ds.innerHTML = ''; ms.innerHTML = ''; ys.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '—'; ds.appendChild(o0.cloneNode(true)); ms.appendChild(o0.cloneNode(true)); ys.appendChild(o0.cloneNode(true));
+    for (var d = 1; d <= 31; d++) { var od = document.createElement('option'); od.value = d; od.textContent = faDigits(d); ds.appendChild(od); }
+    J_MONTHS.forEach(function (name, i) { var om = document.createElement('option'); om.value = i + 1; om.textContent = name; ms.appendChild(om); });
+    for (var y = today.jy - 2; y <= today.jy + 4; y++) { var oy = document.createElement('option'); oy.value = y; oy.textContent = faDigits(y); ys.appendChild(oy); }
+    ds.value = cur.jd; ms.value = cur.jm; ys.value = cur.jy;
+    box.style.display = 'block';
+  }
+  function applyDatePicker() {
+    var jy = parseInt($('dast-dp-y').value, 10), jm = parseInt($('dast-dp-m').value, 10), jd = parseInt($('dast-dp-d').value, 10);
+    if (!dpTarget) return;
+    if (!jy || !jm || !jd) { setInputValue(dpTarget, ''); closeDatePicker(); return; }
+    var iso = shamsiToIso(jy, jm, jd);
+    if (iso) setInputValue(dpTarget, iso);
+    closeDatePicker();
+  }
+  function closeDatePicker() { $('dast-dp').style.display = 'none'; dpTarget = null; }
+
+  var textTimer = null;
+  function refreshDates() {
+    clearTimeout(textTimer);
+    textTimer = setTimeout(function () {
+      enhanceDateInputs(document);
+      convertTextDates(document.getElementById('app-root') || document.body);
+    }, 150);
+  }
+  function startDateWatcher() {
+    refreshDates();
+    var obs = new MutationObserver(refreshDates);
+    obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
+  }
+
   // ---------- دکمه‌های نوار پایین ----------
   function wireUi() {
     $('dast-in-btn').onclick = function () { barAction(checkIn, 'ورود ثبت شد'); };
@@ -4959,6 +5097,9 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   }, true);
 
   wireUi();
+  $('dast-dp-ok').onclick = applyDatePicker;
+  $('dast-dp-cancel').onclick = closeDatePicker;
+  startDateWatcher();
   boot();
 })();
 
