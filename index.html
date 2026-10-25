@@ -4307,6 +4307,23 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-bar button:disabled { opacity: .4; cursor: default; }
   #dast-bar #dast-logout-btn { background: #ece9f6; color: #1d1a33; }
   #dast-bar #dast-msg { color: #6b6685; min-width: 60px; }
+  #dast-ts { position: fixed; inset: 0; z-index: 2147483100; display: none; align-items: center; justify-content: center;
+    background: rgba(20,16,40,0.55); padding: 14px; font-family: inherit; direction: rtl; }
+  #dast-ts .dt-card { background: #fff; color: #1d1a33; width: min(620px, 100%); max-height: 88vh; overflow: auto;
+    border-radius: 16px; padding: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  #dast-ts .dt-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  #dast-ts .dt-head button, #dast-ts .dt-foot button, #dast-ts .dt-row button { border: 0; border-radius: 9px; padding: 7px 12px;
+    background: #ece9f6; color: #1d1a33; font: inherit; cursor: pointer; }
+  #dast-ts .dt-top { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  #dast-ts select, #dast-ts input { padding: 8px; border-radius: 9px; border: 1px solid #cfc9e6; font: inherit; }
+  #dast-ts .dt-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid #eee; }
+  #dast-ts .dt-row label { font-size: 13px; display: flex; gap: 4px; align-items: center; }
+  #dast-ts .dt-row .dt-save { background: #4A4193; color: #fff; }
+  #dast-ts .dt-row .dt-del { background: #f7e1de; color: #8a2a1f; }
+  #dast-ts .dt-empty { color: #6b6685; font-size: 13px; padding: 10px 0; }
+  #dast-ts .dt-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; }
+  #dast-ts #dast-ts-msg { font-size: 13px; }
+  #dast-bar #dast-ts-btn { background: #ece9f6; color: #1d1a33; }
   .dg-fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: #fff; color: #b3261e; font-family: inherit; z-index: 2147483001; padding: 20px; text-align: center; }
 </style>
@@ -4320,9 +4337,25 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   <span id="dast-status"></span>
   <button type="button" id="dast-in-btn" disabled>ثبت ورود</button>
   <button type="button" id="dast-out-btn" disabled>ثبت خروج</button>
+  <button type="button" id="dast-ts-btn" style="display:none">ویرایش تایم‌شیت</button>
   <button type="button" id="dast-export-btn">Excel این ماه</button>
   <button type="button" id="dast-logout-btn">خروج</button>
   <span id="dast-msg"></span>
+</div>
+
+<div id="dast-ts" style="display:none">
+  <div class="dt-card">
+    <div class="dt-head"><strong>ویرایش تایم‌شیت</strong><button type="button" id="dast-ts-close">بستن</button></div>
+    <div class="dt-top">
+      <select id="dast-ts-user"></select>
+      <input type="date" id="dast-ts-day">
+    </div>
+    <div id="dast-ts-rows"></div>
+    <div class="dt-foot">
+      <button type="button" id="dast-ts-add">+ افزودن ردیف</button>
+      <span id="dast-ts-msg"></span>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -4507,6 +4540,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
           Object.keys(main).forEach(function (k) { if (PER_USER_KEYS.indexOf(k) < 0) state[k] = main[k]; });
           Object.keys(fin).forEach(function (k) { state[k] = fin[k]; });
           state.materials = fixLab(state.materials);
+          state.lab = fixLab(state.lab || state.materials);
           if (!s.is_admin) FINANCE_KEYS.forEach(function (k) { state[k] = []; });
           state.me = s.user_id;
           origSetItem.call(localStorage, STATE_KEY, JSON.stringify({ v: 4, data: state }));
@@ -4604,6 +4638,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     var bar = $('dast-bar');
     if (!bar || !session) return;
     bar.style.display = 'flex';
+    wireTimesheetAdmin(session);
     $('dast-who').textContent = session.name || '';
     openAttendance().then(function (open) {
       $('dast-status').textContent = open ? 'وضعیت: در حال کار' : 'وضعیت: خارج از کار';
@@ -4789,6 +4824,106 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     });
   }
 
+
+  // ---------- ویرایش دستی تایم‌شیت (فقط ادمین) ----------
+  var TEHRAN = '+03:30';
+  function tehranHM(iso) {
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+  }
+  function tehranDayRange(day) {
+    var start = new Date(day + 'T00:00:00' + TEHRAN);
+    var end = new Date(start.getTime() + 24 * 3600 * 1000);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }
+  function isoAt(day, hm) {
+    if (!/^\d{2}:\d{2}$/.test(hm || '')) return null;
+    return new Date(day + 'T' + hm + ':00' + TEHRAN).toISOString();
+  }
+  function openTimesheetAdmin() {
+    var m = $('dast-ts');
+    m.style.display = 'flex';
+    var sel = $('dast-ts-user');
+    if (!sel.options.length) {
+      staffRows.forEach(function (p) {
+        var o = document.createElement('option');
+        o.value = p.id; o.textContent = p.full_name || '';
+        sel.appendChild(o);
+      });
+    }
+    if (!$('dast-ts-day').value) {
+      var d = new Date(); var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      $('dast-ts-day').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+    loadTimesheetDay();
+  }
+  function closeTimesheetAdmin() { $('dast-ts').style.display = 'none'; }
+  function tsMsg(t, bad) { var el = $('dast-ts-msg'); el.textContent = t || ''; el.style.color = bad ? '#b3261e' : '#4A4193'; }
+  function loadTimesheetDay() {
+    var uid = $('dast-ts-user').value, day = $('dast-ts-day').value;
+    var list = $('dast-ts-rows');
+    list.innerHTML = '';
+    if (!uid || !day) return;
+    var r = tehranDayRange(day);
+    ensureSession().then(function () {
+      return sbRequest('rest/v1/attendance',
+        'user_id=eq.' + uid + '&check_in=gte.' + encodeURIComponent(r.start) + '&check_in=lt.' + encodeURIComponent(r.end) + '&select=id,check_in,check_out&order=check_in.asc');
+    }).then(function (res) { return res.json(); }).then(function (rows) {
+      if (!Array.isArray(rows)) { tsMsg('خواندن ردیف‌ها انجام نشد', true); return; }
+      if (!rows.length) list.innerHTML = '<div class="dt-empty">برای این روز ردیفی نیست.</div>';
+      rows.forEach(function (row) { list.appendChild(tsRow(row.id, row.check_in, row.check_out)); });
+      tsMsg('');
+    }).catch(function () { tsMsg('خطا در خواندن', true); });
+  }
+  function tsRow(id, inIso, outIso) {
+    var box = document.createElement('div');
+    box.className = 'dt-row';
+    box.innerHTML = '<label>ورود <input type="time" class="dt-in"></label>' +
+      '<label>خروج <input type="time" class="dt-out"></label>' +
+      '<button type="button" class="dt-save">ذخیره</button>' +
+      '<button type="button" class="dt-del">حذف</button>';
+    box.querySelector('.dt-in').value = inIso ? tehranHM(inIso) : '';
+    box.querySelector('.dt-out').value = outIso ? tehranHM(outIso) : '';
+    box.querySelector('.dt-save').onclick = function () { saveTsRow(box, id); };
+    box.querySelector('.dt-del').onclick = function () {
+      if (!id) { box.remove(); return; }
+      if (!confirm('این ردیف حذف شود؟')) return;
+      sbRequest('rest/v1/attendance', 'id=eq.' + id, { method: 'DELETE', prefer: 'return=minimal' })
+        .then(function (r) { if (!r.ok) throw new Error(); tsMsg('حذف شد'); loadTimesheetDay(); })
+        .catch(function () { tsMsg('حذف انجام نشد', true); });
+    };
+    return box;
+  }
+  function saveTsRow(box, id) {
+    var day = $('dast-ts-day').value, uid = $('dast-ts-user').value;
+    var inV = box.querySelector('.dt-in').value, outV = box.querySelector('.dt-out').value;
+    var cin = isoAt(day, inV), cout = outV ? isoAt(day, outV) : null;
+    if (!cin) { tsMsg('ساعت ورود را وارد کن', true); return; }
+    if (cout && cout <= cin) { tsMsg('ساعت خروج باید بعد از ورود باشد', true); return; }
+    var req = id
+      ? sbRequest('rest/v1/attendance', 'id=eq.' + id, { method: 'PATCH', prefer: 'return=minimal', body: { check_in: cin, check_out: cout } })
+      : sbRequest('rest/v1/attendance', '', { method: 'POST', prefer: 'return=minimal', body: { user_id: uid, check_in: cin, check_out: cout } });
+    req.then(function (r) {
+      if (!r.ok) throw new Error('save');
+      tsMsg('ذخیره شد');
+      loadTimesheetDay();
+    }).catch(function () { tsMsg('ذخیره انجام نشد. دسترسی یا ساعت‌ها را بررسی کن.', true); });
+  }
+  function addTsRow() {
+    var list = $('dast-ts-rows');
+    if (list.querySelector('.dt-empty')) list.innerHTML = '';
+    list.appendChild(tsRow(null, null, null));
+  }
+  function wireTimesheetAdmin(session) {
+    if (!session || !session.is_admin) return;
+    var btn = $('dast-ts-btn');
+    btn.style.display = '';
+    btn.onclick = openTimesheetAdmin;
+    $('dast-ts-user').onchange = loadTimesheetDay;
+    $('dast-ts-day').onchange = loadTimesheetDay;
+    $('dast-ts-add').onclick = addTsRow;
+    $('dast-ts-close').onclick = closeTimesheetAdmin;
+  }
+
   // ---------- دکمه‌های نوار پایین ----------
   function wireUi() {
     $('dast-in-btn').onclick = function () { barAction(checkIn, 'ورود ثبت شد'); };
@@ -4809,6 +4944,19 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   if (window.caches) {
     caches.keys().then(function (keys) { keys.forEach(function (k) { caches.delete(k); }); }).catch(function () {});
   }
+
+  // دکمه‌ی خروج داخل خود v5 (کنار نام کاربر) هم باید واقعاً از حساب خارج کند
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!t || (t.closest && t.closest('#dast-bar,#dast-pin,#dast-ts'))) return;
+    if (t.getAttribute('aria-label') === 'خروج' || t.getAttribute('title') === 'تعویض کاربر') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      clearSession();
+      location.reload();
+    }
+  }, true);
 
   wireUi();
   boot();
