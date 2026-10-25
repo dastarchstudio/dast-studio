@@ -341,9 +341,26 @@ function updateStudioLogos() {
     if (img.getAttribute('src') !== url) img.setAttribute('src', url);
   });
 }
-const SUPABASE_URL = "https://rzysrvrtkxongcxouywl.supabase.co";
+const SUPABASE_URL = location.origin + "/api/sb"; // ترافیک Supabase از پراکسی همین سایت (api/sb) عبور می‌کند
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6eXNydnJ0a3hvbmdjeG91eXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NjY4MDQsImV4cCI6MjEwNzE0MjgwNH0.yo-9if4WTu75Gs6A1NRwEiq1YsGnbGs2nyrZsU9uLck";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// supabase-js آدرس‌هایی مثل {URL}/rest/v1/table?x=y می‌سازد.
+// این بخش آن‌ها را به {URL}?__p=rest/v1/table&x=y تبدیل می‌کند تا به پراکسی سمت سرور برسند.
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: {
+    fetch: (input, init) => {
+      const url = typeof input === 'string' ? input : '';
+      const prefix = SUPABASE_URL + '/';
+      if (url.startsWith(prefix)) {
+        const rest = url.slice(prefix.length);
+        const q = rest.indexOf('?');
+        const path = q >= 0 ? rest.slice(0, q) : rest;
+        const qs = q >= 0 ? rest.slice(q + 1) : '';
+        return fetch(SUPABASE_URL + '?__p=' + encodeURIComponent(path) + (qs ? '&' + qs : ''), init);
+      }
+      return fetch(input, init);
+    }
+  }
+});
 
 const STAGES = ["سرنخ جدید", "تماس اولیه", "جلسه برگزار شد", "پیشنهاد ارسال شد", "برنده", "بازنده"];
 const SPECIALTIES = ["ورزشی", "مسکونی", "تجاری-اداری", "بازسازی بافت فرسوده", "سایر"];
@@ -363,6 +380,17 @@ let attendanceTimer = null, activeCheckIn = null;
 let attendanceReady = false;
 let attendanceStatusPromise = null;
 let notificationChannel = null;
+// ===== به‌روزرسانی زنده با polling (جایگزین realtime که از مرورگر به Supabase وصل می‌شد) =====
+const pollTimers = {};
+let seenNotificationIds = null;
+function startPolling(key, fn, ms) {
+  clearInterval(pollTimers[key]);
+  pollTimers[key] = setInterval(() => { if (!document.hidden) fn(); }, ms);
+}
+function stopPolling(key) {
+  clearInterval(pollTimers[key]);
+  delete pollTimers[key];
+}
 let notifications = [];
 let notificationPreferences = {
   enabled: true,
@@ -551,8 +579,9 @@ async function doLogin() {
   await loadProfileAndShowApp();
 }
 async function doLogout() {
-  if (taskChannel) { sb.removeChannel(taskChannel); taskChannel = null; }
-  if (notificationChannel) { sb.removeChannel(notificationChannel); notificationChannel = null; }
+  stopPolling('tasks');
+  stopPolling('notifications');
+  seenNotificationIds = null;
   try {
     const sub = swReg && await swReg.pushManager.getSubscription();
     if (sub) { await apiPost('/api/push-subscribe', { action: 'unsubscribe', endpoint: sub.endpoint }); }
@@ -1377,11 +1406,7 @@ async function startTaskNotifications() {
     // درخواست مجوز مرورگر فقط پس از کلیک کاربر از داخل پنجره‌ی راهنما انجام می‌شود.
     setTimeout(showNotificationOptInPrompt, 900);
   }
-  if (taskChannel) sb.removeChannel(taskChannel);
-  taskChannel = sb.channel('tasks-' + currentUser.id)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'personal_tasks', filter: `user_id=eq.${currentUser.id}` }, () => loadMyTasks())
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'personal_tasks', filter: `user_id=eq.${currentUser.id}` }, () => loadMyTasks())
-    .subscribe();
+  startPolling('tasks', loadMyTasks, 30000);
 }
 
 async function loadNotifications() {
@@ -1432,17 +1457,20 @@ async function markAllNotificationsRead() {
   renderNotificationBell(); renderNotificationList();
 }
 function startNotificationCenter() {
-  loadNotifications();
-  if (notificationChannel) sb.removeChannel(notificationChannel);
-  notificationChannel = sb.channel('notifications-' + currentUser.id)
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications', filter:`user_id=eq.${currentUser.id}` }, payload => {
-      const n=payload.new;
-      notifications=[n,...notifications].slice(0,30);
-      renderNotificationBell();
-      if (notificationPreferenceEnabled(notificationPreferenceKey(n))) notifyUser(n.title,n.body||'');
-      if (document.getElementById('notification-list')) renderNotificationList();
-    })
-    .subscribe();
+  seenNotificationIds = null;
+  pollNewNotifications();
+  startPolling('notifications', pollNewNotifications, 30000);
+}
+async function pollNewNotifications() {
+  const { data, error } = await sb.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending:false }).limit(30);
+  if (error || !data) return;
+  const isFirstRun = seenNotificationIds === null;
+  const fresh = isFirstRun ? [] : data.filter(n => !seenNotificationIds.has(n.id));
+  seenNotificationIds = new Set(data.map(n => n.id));
+  notifications = data;
+  renderNotificationBell();
+  fresh.forEach(n => { if (notificationPreferenceEnabled(notificationPreferenceKey(n))) notifyUser(n.title, n.body || ''); });
+  if (document.getElementById('notification-list')) renderNotificationList();
 }
 function avatarInitial(profile) {
   const name = String(profile?.full_name || 'د').trim();
