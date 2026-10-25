@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>دَست | پنل دفتر</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">استودیو معماری دَست</div>
+    <div class="me">
+      <span id="who"></span>
+      <button type="button" id="logout" class="ghost" hidden>خروج</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <p class="muted">در حال بارگذاری…</p>
+  </main>
+
+  <nav id="tabs" class="tabs" hidden>
+    <button type="button" data-tab="attendance">حضور و غیاب</button>
+    <button type="button" data-tab="mytasks">کارهای من</button>
+    <button type="button" data-tab="assign" class="admin-only" hidden>واگذاری کار</button>
+    <button type="button" data-tab="export">خروجی Excel</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
