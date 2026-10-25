@@ -4394,6 +4394,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   var INTRO_FLAG = 'dast-in';                       // پرچم v5 برای رد شدن از انیمیشن
   var FINANCE_KEYS = ['clients', 'contracts', 'costs', 'tenders'];   // فقط ادمین‌ها
   var PER_USER_KEYS = ['me', 'prefs'];                                // روی دستگاه، نه در داده‌ی مشترک
+  var BRIDGED_KEYS = ['attendance', 'officeTasks', 'times'];        // در جدول‌های Supabase ذخیره می‌شوند
   var LIST_KEYS = ['projects', 'tasks', 'clients', 'leads', 'contracts', 'costs', 'tenders',
     'announcements', 'officeTasks', 'events', 'attendance', 'materials', 'touches', 'times',
     'log', 'files', 'proposals'];
@@ -4568,7 +4569,9 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
           state.lab = fixLab(state.lab || state.materials);
           if (!s.is_admin) FINANCE_KEYS.forEach(function (k) { state[k] = []; });
           state.me = s.user_id;
-          origSetItem.call(localStorage, STATE_KEY, JSON.stringify({ v: 4, data: state }));
+          return loadBridged(s, state).then(function () {
+            origSetItem.call(localStorage, STATE_KEY, JSON.stringify({ v: 4, data: state }));
+          });
         });
       });
     });
@@ -4586,7 +4589,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       if (!s) return;
       var main = {}, fin = {};
       Object.keys(parsed).forEach(function (k) {
-        if (PER_USER_KEYS.indexOf(k) >= 0) return;
+        if (PER_USER_KEYS.indexOf(k) >= 0 || BRIDGED_KEYS.indexOf(k) >= 0) return;
         if (FINANCE_KEYS.indexOf(k) >= 0) fin[k] = parsed[k];
         else main[k] = parsed[k];
       });
@@ -4607,7 +4610,12 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   // نگه داشتن ذخیره‌ی v5 در localStorage و فرستادنش به Supabase
   Storage.prototype.setItem = function (key, value) {
     origSetItem.call(this, key, value);
-    if (this === localStorage && key === STATE_KEY) scheduleSave(value);
+    if (this === localStorage && key === STATE_KEY) {
+      var parsed = null;
+      try { parsed = JSON.parse(value).data; } catch (e) { parsed = null; }
+      if (parsed && saveEnabled) bridgeSync(parsed);
+      scheduleSave(value);
+    }
   };
 
   // ---------- حضور و غیاب و Excel (همان جدول و API نسخه‌ی قدیمی) ----------
@@ -4811,6 +4819,9 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     });
   }
 
+  function setBundleContext(session) {
+    window.__dastMe = session ? session.user_id : null;
+  }
   function injectBundle() {
     var s = document.createElement('script');
     s.src = 'v5-app.js';
@@ -4830,6 +4841,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
           return hydrate().then(function () {
             saveEnabled = true;
           }, function () { /* کش محلی */ }).then(function () {
+            setBundleContext(s);
             injectBundle();
             renderBar(s);
             applyStaffRules(s);
@@ -4949,6 +4961,122 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     $('dast-ts-close').onclick = closeTimesheetAdmin;
   }
 
+
+  // ---------- پل داده: حضور و غیاب و کارهای دفتر ↔ جدول‌های Supabase ----------
+  var bridgeMap = {};           // شناسه‌ی محلی v5 ← شناسه‌ی ردیف در personal_tasks
+  var attSnapshot = {};         // id → آیتم حضور آخرین وضعیت همگام‌شده
+  var offSnapshot = {};         // id → کار دفتر آخرین وضعیت همگام‌شده
+  var bridgeDone = false;
+  try { bridgeMap = JSON.parse(localStorage.getItem('dast-task-map') || '{}') || {}; } catch (e) { bridgeMap = {}; }
+
+  function tehranDate(iso) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+  }
+  function tehranMinutes(iso) {
+    var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)).split(':');
+    return (+p[0]) * 60 + (+p[1]);
+  }
+  // روز شمسی/میلادی داخل v5 (YYYY-MM-DD) + دقیقه‌ی روز → ISO
+  function isoFromDayMinutes(day, minutes) {
+    return new Date(new Date(day + 'T00:00:00+03:30').getTime() + minutes * 60000).toISOString();
+  }
+  function attFromRow(r) {
+    return { id: 'db_' + r.id, userId: r.user_id, date: tehranDate(r.check_in), in: tehranMinutes(r.check_in),
+      out: r.check_out ? tehranMinutes(r.check_out) : null, remote: false, leave: false, dbId: r.id };
+  }
+  function offFromRow(r) {
+    return { id: 'db_' + r.id, dbId: r.id, title: r.title, assignee: r.user_id, due: r.due_date || '',
+      done: r.status === 'done', tag: 'عمومی' };
+  }
+  function loadBridged(s, state) {
+    var since = new Date(Date.now() - 90 * 86400000).toISOString();
+    return Promise.all([
+      sbRequest('rest/v1/attendance', 'check_in=gte.' + encodeURIComponent(since) + '&select=id,user_id,check_in,check_out&order=check_in.asc&limit=2000').then(function (r) { return r.ok ? r.json() : []; }),
+      sbRequest('rest/v1/personal_tasks', 'select=id,user_id,title,status,due_date,assigned_by&order=created_at.desc&limit=1000').then(function (r) { return r.ok ? r.json() : []; })
+    ]).then(function (res) {
+      state.attendance = (res[0] || []).map(attFromRow);
+      state.officeTasks = (res[1] || []).map(offFromRow);
+      attSnapshot = {}; offSnapshot = {};
+      state.attendance.forEach(function (x) { attSnapshot[x.id] = JSON.parse(JSON.stringify(x)); });
+      state.officeTasks.forEach(function (x) { offSnapshot[x.id] = JSON.parse(JSON.stringify(x)); });
+      bridgeDone = true;
+    });
+  }
+  function saveMap() { origSetItem.call(localStorage, 'dast-task-map', JSON.stringify(bridgeMap)); }
+
+  // هر تغییری که v5 در داده‌ی خودش بدهد، اینجا به دیتابیس می‌رسد
+  function bridgeSync(parsed) {
+    if (!bridgeDone) return;
+    ensureSession().then(function (s) {
+      if (!s) return;
+      var att = parsed.attendance || [];
+      att.forEach(function (x) {
+        var prev = attSnapshot[x.id];
+        if (!prev && x.id.indexOf('db_') !== 0 && x.in != null) {
+          attSnapshot[x.id] = JSON.parse(JSON.stringify(x));
+          sbRequest('rest/v1/attendance', '', { method: 'POST', prefer: 'return=minimal',
+            body: { user_id: x.userId, check_in: isoFromDayMinutes(x.date, x.in), check_out: x.out != null ? isoFromDayMinutes(x.date, x.out) : null } })
+            .then(function (r) { if (!r.ok) throw new Error('att'); })
+            .catch(function () { barMessage('ثبت حضور انجام نشد'); });
+        } else if (prev && prev.out == null && x.out != null) {
+          attSnapshot[x.id] = JSON.parse(JSON.stringify(x));
+          sbRequest('rest/v1/attendance', 'user_id=eq.' + x.userId + '&check_out=is.null', { method: 'PATCH', prefer: 'return=minimal',
+            body: { check_out: isoFromDayMinutes(x.date, x.out) } })
+            .then(function (r) { if (!r.ok) throw new Error('out'); })
+            .catch(function () { barMessage('ثبت خروج انجام نشد'); });
+        }
+      });
+
+      var off = parsed.officeTasks || [];
+      var seen = {};
+      off.forEach(function (x) {
+        seen[x.id] = true;
+        var prev = offSnapshot[x.id];
+        if (!prev && x.id.indexOf('db_') !== 0) {
+          offSnapshot[x.id] = JSON.parse(JSON.stringify(x));
+          sbRequest('rest/v1/personal_tasks', '', { method: 'POST', prefer: 'return=representation',
+            body: { user_id: x.assignee, title: x.title, due_date: x.due || null, status: x.done ? 'done' : 'new',
+                    priority: 'متوسط', assigned_by: x.assignee === s.user_id ? null : s.user_id } })
+            .then(function (r) { return r.json(); })
+            .then(function (rows) {
+              if (rows && rows[0]) { bridgeMap[x.id] = rows[0].id; saveMap(); }
+            })
+            .catch(function () { barMessage('ثبت کار انجام نشد'); });
+          resetOfficeDue();
+        } else if (prev && !prev.done && x.done) {
+          offSnapshot[x.id] = JSON.parse(JSON.stringify(x));
+          var dbId = x.id.indexOf('db_') === 0 ? x.id.slice(3) : bridgeMap[x.id];
+          if (dbId) sbRequest('rest/v1/personal_tasks', 'id=eq.' + dbId, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'done' } });
+        }
+      });
+      Object.keys(offSnapshot).forEach(function (id) {
+        if (seen[id]) return;
+        var dbId = id.indexOf('db_') === 0 ? id.slice(3) : bridgeMap[id];
+        delete offSnapshot[id];
+        if (dbId) sbRequest('rest/v1/personal_tasks', 'id=eq.' + dbId, { method: 'DELETE', prefer: 'return=minimal' });
+      });
+    });
+  }
+
+  // فیلد تاریخ شمسی برای کار دفتر (کنار فیلد عنوان)
+  function ensureOfficeDue() {
+    var section = $('section-office-tasks');
+    if (!section || section.querySelector('#dast-office-due')) return;
+    var title = section.querySelector('input:not([type=date]):not([type=number]):not([type=checkbox])');
+    if (!title) return;
+    var d = document.createElement('input');
+    d.type = 'date';
+    d.id = 'dast-office-due';
+    d.addEventListener('change', function () { window.__dastOfficeDue = d.value || ''; });
+    d.addEventListener('input', function () { window.__dastOfficeDue = d.value || ''; });
+    title.parentNode.insertBefore(d, title.nextSibling);
+  }
+  function resetOfficeDue() {
+    window.__dastOfficeDue = '';
+    var d = document.getElementById('dast-office-due');
+    if (d) d.value = '';
+  }
+
   // ---------- تبدیل تاریخ‌های میلادی به شمسی در کل سایت ----------
   var J_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
   var faDigits = function (s) { return String(s).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); };
@@ -5053,6 +5181,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     clearTimeout(textTimer);
     textTimer = setTimeout(function () {
       enhanceDateInputs(document);
+      ensureOfficeDue();
       convertTextDates(document.getElementById('app-root') || document.body);
     }, 150);
   }
