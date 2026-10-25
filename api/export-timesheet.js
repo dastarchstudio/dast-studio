@@ -30,10 +30,7 @@ export default async function handler(req, res) {
     res.status(401).json({ error: 'unauthorized' });
     return;
   }
-  if (!caller.is_admin) {
-    res.status(403).json({ error: 'forbidden' });
-    return;
-  }
+  // ادمین: فایل همه‌ی کارمندان. غیرادمین: فقط فایل خودش (کاربر دیگری دیده نمی‌شود).
 
   try {
     const jy = parseInt(req.query.jy);
@@ -54,7 +51,8 @@ export default async function handler(req, res) {
 
     const headers = svcHeaders();
 
-    const profilesRes = await fetch(restUrl('profiles?select=*'), { headers });
+    const profileFilter = caller.is_admin ? '' : `id=eq.${encodeURIComponent(caller.id)}&`;
+    const profilesRes = await fetch(restUrl(`profiles?${profileFilter}select=*`), { headers });
     const profiles = await profilesRes.json();
     if (!Array.isArray(profiles)) {
       res.status(500).json({ error: 'خواندن پروفایل‌ها ناموفق بود', details: profiles });
@@ -62,7 +60,7 @@ export default async function handler(req, res) {
     }
 
     const attRes = await fetch(
-      restUrl(`attendance?check_in=gte.${rangeStart.toISOString()}&check_in=lt.${rangeEnd.toISOString()}&select=*&order=check_in.asc`),
+      restUrl(`attendance?${caller.is_admin ? '' : `user_id=eq.${encodeURIComponent(caller.id)}&`}check_in=gte.${rangeStart.toISOString()}&check_in=lt.${rangeEnd.toISOString()}&select=*&order=check_in.asc`),
       { headers }
     );
     const attendance = await attRes.json();

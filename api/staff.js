@@ -1,4 +1,4 @@
-// فهرست کارمندان برای صفحه‌ی انتخاب کاربر (فقط نام، نقش و بخش؛ بدون ایمیل و اطلاعات تماس)
+// فهرست کارمندان برای صفحه‌ی ورود (نام، نقش، بخش و ادمین بودن؛ بدون ایمیل و اطلاعات تماس)
 // کلید service_role فقط در سرور استفاده می‌شود و هرگز به مرورگر نمی‌رسد.
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
   try {
     const r = await fetch(
-      `${origin}/rest/v1/profiles?select=id,full_name,role_title,department&order=full_name.asc`,
+      `${origin}/rest/v1/profiles?select=id,full_name,role_title,department,is_admin&order=full_name.asc`,
       { headers: { apikey: key, authorization: `Bearer ${key}` } }
     );
     if (!r.ok) {
