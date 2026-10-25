@@ -4340,7 +4340,8 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     'announcements', 'officeTasks', 'events', 'attendance', 'materials', 'touches', 'times',
     'log', 'files', 'proposals'];
   var HIDE_FOR_STAFF = ['صورت حساب', 'صورت‌حساب', 'قرارداد', 'مناقصه', 'مسابقه', 'کارفرما',
-    'تیم مالی', 'پروژه جدید', 'افزودن پروژه', 'ایجاد پروژه'];
+    'تیم مالی', 'هزینه و درآمد', 'درآمد و هزینه', 'گزارش مدیریتی', 'گزارش مدیریت',
+    'پروژه جدید', 'افزودن پروژه', 'ایجاد پروژه'];
   var PALETTE = ['#342D73', '#6B5B95', '#4F7FA0', '#2E7D6B', '#A0522D', '#8B3A62', '#4A4193', '#5C6B2E', '#7A4E2D'];
 
   var origSetItem = Storage.prototype.setItem;
@@ -4481,12 +4482,20 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       })
       .then(function (rows) { return rows && rows[0] && rows[0].data ? rows[0].data : {}; });
   }
+  function emptyLab() {
+    return { v: 1, materials: [], suppliers: [], categories: [], prices: [], boards: [], items: [],
+      favorites: [], catalogs: [], files: [], requests: [] };
+  }
   function emptyState() {
     var st = {};
     LIST_KEYS.forEach(function (k) { st[k] = []; });
+    st.materials = emptyLab();
     st.prefs = { theme: 'light', accent: 'ochre', intro: true };
     st.me = null;
     return st;
+  }
+  function fixLab(v) {
+    return (v && typeof v === 'object' && !Array.isArray(v) && v.v === 1) ? v : emptyLab();
   }
   function hydrate() {
     return ensureSession().then(function (s) {
@@ -4497,6 +4506,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
           var state = emptyState();
           Object.keys(main).forEach(function (k) { if (PER_USER_KEYS.indexOf(k) < 0) state[k] = main[k]; });
           Object.keys(fin).forEach(function (k) { state[k] = fin[k]; });
+          state.materials = fixLab(state.materials);
           if (!s.is_admin) FINANCE_KEYS.forEach(function (k) { state[k] = []; });
           state.me = s.user_id;
           origSetItem.call(localStorage, STATE_KEY, JSON.stringify({ v: 4, data: state }));
