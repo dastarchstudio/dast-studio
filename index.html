@@ -4341,6 +4341,24 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-tsv th { background: var(--surface-2, #f8f9fc); color: var(--muted, #6b6b80); font-weight: 700; }
   #dast-tsv tr.tsv-fri td { color: var(--muted, #6b6b80); background: rgba(91,81,177,.04); }
   #dast-tsv .tsv-sum { margin-top: 12px; font-weight: 800; }
+  body.dast-prj-on #main > *:not(#dast-prj) { display: none !important; }
+  #dast-prj { display: none; }
+  body.dast-prj-on #dast-prj { display: block; }
+  #dast-prj .pr-card { background: var(--surface, #fff); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #dast-prj .pr-title { font-weight: 800; width: 100%; }
+  #dast-prj .pr-meta { color: var(--muted, #6b6b80); font-size: 13px; width: 100%; }
+  #dast-prj .pr-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; background: var(--surface, #fff); padding: 14px; border-radius: 14px; }
+  #dast-prj .pr-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted, #6b6b80); }
+  #dast-prj input, #dast-prj select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border, #e2e2ec); font: inherit; color: var(--text, #1a1a2e); background: #fff; }
+  #dast-prj .pr-actions { display: flex; gap: 8px; margin-top: 12px; }
+  #dast-prj .tsv-del { background: #f7e1de; color: #8a2a1f; }
+  #dast-prj .tsv-back { background: #ece9f6; color: #1d1a33; }
+  #dast-prj .tsv-msg { color: #b3261e; font-size: 13px; min-height: 18px; margin-top: 8px; }
+  #dast-presence { display: none; background: var(--surface, #fff); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  body.dast-att-on #dast-presence { display: block; }
+  #dast-presence h2 { margin: 0 0 10px; font-size: 16px; }
+  #dast-presence .pr-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border, #e2e2ec); font-size: 14px; }
+  #dast-presence .pr-empty { color: var(--muted, #6b6b80); font-size: 13px; }
   .dg-fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: #fff; color: #b3261e; font-family: inherit; z-index: 2147483001; padding: 20px; text-align: center; }
 </style>
@@ -4582,8 +4600,8 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   }
   function saveState(raw) {
     var parsed;
-    try { parsed = JSON.parse(raw).data; } catch (e) { return; }
-    ensureSession().then(function (s) {
+    try { parsed = JSON.parse(raw).data; } catch (e) { return Promise.resolve(); }
+    return ensureSession().then(function (s) {
       if (!s) return;
       var main = {}, fin = {};
       Object.keys(parsed).forEach(function (k) {
@@ -4595,7 +4613,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       return upsertRow('main', main, now, s.user_id).then(function () {
         if (s.is_admin) return upsertRow('finance', fin, now, s.user_id);
       });
-    }).catch(function (e) { console.warn('ذخیره انجام نشد', e); });
+    }).catch(function (e) { console.warn('ذخیره انجام نشد', e); throw e; });
   }
   function upsertRow(id, data, now, uid) {
     return sbRequest('rest/v1/erp_state', 'on_conflict=id', {
@@ -5339,12 +5357,198 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       .catch(function (e) { barMessage(e.message || 'خطا'); });
   }
   // وقتی منوی تایم‌شیت باز می‌شود، جدول روزانه نشان داده می‌شود و بقیه‌ی بخش‌ها پنهان می‌شوند
+
+  // ---------- حاضرین در دفتر (همه‌ی کارمندان می‌بینند) ----------
+  var presenceTimer = null;
+  function ensurePresencePanel() {
+    var p = document.getElementById('dast-presence');
+    if (p) return p;
+    p = document.createElement('section');
+    p.id = 'dast-presence';
+    var host = document.getElementById('main') || document.body;
+    host.insertBefore(p, host.firstChild);
+    return p;
+  }
+  function renderPresence() {
+    var p = ensurePresencePanel();
+    p.innerHTML = '';
+    var h = document.createElement('h2');
+    h.textContent = 'الان در دفتر';
+    p.appendChild(h);
+    var list = document.createElement('div');
+    list.className = 'pr-list';
+    p.appendChild(list);
+    ensureSession().then(function (s) {
+      if (!s) return;
+      return fetch(sbPath('rest/v1/rpc/office_now', ''), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
+        body: '{}'
+      }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+        list.innerHTML = '';
+        if (!rows || !rows.length) { list.innerHTML = '<div class="pr-empty">الان کسی در دفتر ثبت نشده.</div>'; return; }
+        rows.forEach(function (x) {
+          var row = document.createElement('div');
+          row.className = 'pr-row';
+          var name = (staffRows.filter(function (st) { return st.id === x.user_id; })[0] || {}).full_name || '—';
+          row.innerHTML = '<span></span><span></span>';
+          row.children[0].textContent = name;
+          row.children[1].textContent = 'از ' + tehranHM(x.check_in);
+          list.appendChild(row);
+        });
+      });
+    }).catch(function () { list.innerHTML = '<div class="pr-empty">خواندن لیست انجام نشد.</div>'; });
+  }
+  function tehranHM(iso) {
+    return new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  }
+
+  // ---------- مدیریت پروژه‌ها: افزودن، ویرایش، حذف (ادمین) ----------
+  var PRJ_STATUS = { active: 'در جریان', done: 'تکمیل شده', paused: 'متوقف' };
+  function readStateData() {
+    try { var st = JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); return st && st.data ? st.data : null; } catch (e) { return null; }
+  }
+  function saveStateData(data) {
+    var raw = JSON.stringify({ v: 4, data: data });
+    origSetItem.call(localStorage, STATE_KEY, raw);
+    return saveState(raw);
+  }
+  function ensurePrjPanel() {
+    var p = document.getElementById('dast-prj');
+    if (p) return p;
+    p = document.createElement('section');
+    p.id = 'dast-prj';
+    var host = document.getElementById('main') || document.body;
+    host.insertBefore(p, host.firstChild);
+    return p;
+  }
+  function renderProjects() {
+    var session = readSession();
+    var p = ensurePrjPanel();
+    p.innerHTML = '';
+    var data = readStateData() || { projects: [], clients: [], tasks: [] };
+    var isAdmin = !!(session && session.is_admin);
+
+    var head = document.createElement('div');
+    head.className = 'tsv-head';
+    var h = document.createElement('h2');
+    h.textContent = 'پروژه‌ها';
+    head.appendChild(h);
+    if (isAdmin) {
+      var add = document.createElement('button');
+      add.type = 'button'; add.className = 'tsv-xls'; add.textContent = 'پروژه جدید';
+      add.onclick = function () { openProjectForm(null); };
+      head.appendChild(add);
+    }
+    p.appendChild(head);
+
+    var list = document.createElement('div');
+    list.className = 'pr-list';
+    if (!data.projects || !data.projects.length) list.innerHTML = '<div class="pr-empty">پروژه‌ای ثبت نشده.</div>';
+    (data.projects || []).forEach(function (pr) {
+      var client = (data.clients || []).filter(function (c) { return c.id === pr.client; })[0];
+      var row = document.createElement('div');
+      row.className = 'pr-card';
+      var t = document.createElement('div');
+      t.className = 'pr-title';
+      t.textContent = (pr.name || 'بی‌نام') + (client ? ' — ' + client.name : '');
+      row.appendChild(t);
+      var m = document.createElement('div');
+      m.className = 'pr-meta';
+      m.textContent = [pr.code, pr.city, pr.type, PRJ_STATUS[pr.status] || pr.status].filter(Boolean).join(' · ');
+      row.appendChild(m);
+      if (isAdmin) {
+        var ed = document.createElement('button'); ed.type = 'button'; ed.className = 'tsv-xls'; ed.textContent = 'ویرایش';
+        ed.onclick = function () { openProjectForm(pr); };
+        var del = document.createElement('button'); del.type = 'button'; del.className = 'tsv-xls tsv-del'; del.textContent = 'حذف';
+        del.onclick = function () { deleteProject(pr); };
+        row.appendChild(ed); row.appendChild(del);
+      }
+      list.appendChild(row);
+    });
+    p.appendChild(list);
+  }
+  function openProjectForm(pr) {
+    var data = readStateData() || { projects: [], clients: [], tasks: [] };
+    var p = ensurePrjPanel();
+    p.innerHTML = '';
+    var h = document.createElement('h2');
+    h.textContent = pr ? 'ویرایش پروژه' : 'پروژه جدید';
+    p.appendChild(h);
+    var f = document.createElement('div');
+    f.className = 'pr-form';
+    function field(label, el) { var l = document.createElement('label'); l.textContent = label; l.appendChild(el); f.appendChild(l); return el; }
+    function input(type, value) { var i = document.createElement('input'); i.type = type; i.value = value == null ? '' : value; return i; }
+    var name = field('نام پروژه', input('text', pr && pr.name));
+    var code = field('کد پروژه', input('text', pr && pr.code));
+    var client = document.createElement('select');
+    (data.clients || []).forEach(function (c) { var o = document.createElement('option'); o.value = c.id; o.textContent = c.name; if (pr && pr.client === c.id) o.selected = true; client.appendChild(o); });
+    field('کارفرما', client);
+    var city = field('شهر', input('text', pr && pr.city));
+    var type = field('نوع پروژه', input('text', pr && pr.type));
+    var area = field('متراژ', input('number', pr && pr.area));
+    var fee = field('هزینه طراحی', input('number', pr && pr.fee));
+    var floors = field('تعداد طبقات', input('number', pr && pr.floors));
+    var start = field('شروع', input('date', pr && pr.start));
+    var end = field('پایان', input('date', pr && pr.end));
+    var status = document.createElement('select');
+    Object.keys(PRJ_STATUS).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = PRJ_STATUS[k]; if (pr && pr.status === k) o.selected = true; status.appendChild(o); });
+    field('وضعیت', status);
+    p.appendChild(f);
+    var msg = document.createElement('div'); msg.className = 'tsv-msg';
+    p.appendChild(msg);
+    var row = document.createElement('div'); row.className = 'pr-actions';
+    var save = document.createElement('button'); save.type = 'button'; save.className = 'tsv-xls'; save.textContent = 'ذخیره';
+    var back = document.createElement('button'); back.type = 'button'; back.className = 'tsv-xls tsv-back'; back.textContent = 'انصراف';
+    back.onclick = renderProjects;
+    save.onclick = function () {
+      if (!name.value.trim()) { msg.textContent = 'نام پروژه را وارد کن'; return; }
+      var st = readStateData() || { projects: [], clients: [], tasks: [] };
+      var values = {
+        name: name.value.trim(), code: code.value.trim(), client: client.value, city: city.value.trim(),
+        type: type.value.trim(), area: area.value ? +area.value : null, fee: fee.value ? +fee.value : null,
+        floors: floors.value ? +floors.value : null, start: start.value || null, end: end.value || null, status: status.value
+      };
+      if (pr) {
+        st.projects = (st.projects || []).map(function (x) { return x.id === pr.id ? Object.assign({}, x, values) : x; });
+      } else {
+        values.id = 'pr_' + Date.now();
+        st.projects = [values].concat(st.projects || []);
+      }
+      save.disabled = true;
+      saveStateData(st).then(function () { location.reload(); })
+        .catch(function () { msg.textContent = 'ذخیره انجام نشد'; save.disabled = false; });
+    };
+    row.appendChild(save); row.appendChild(back);
+    p.appendChild(row);
+  }
+  function deleteProject(pr) {
+    if (!confirm('پروژه «' + (pr.name || '') + '» و کارهای مربوط به آن حذف شود؟')) return;
+    var st = readStateData() || { projects: [], clients: [], tasks: [] };
+    st.projects = (st.projects || []).filter(function (x) { return x.id !== pr.id; });
+    st.tasks = (st.tasks || []).filter(function (t) { return t.projectId !== pr.id; });
+    saveStateData(st).then(function () { location.reload(); })
+      .catch(function () { barMessage('حذف انجام نشد'); });
+  }
+
+  // نوار منوی کناری: هر بخش، صفحه‌ی مخصوص خودش را نشان می‌دهد
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest ? e.target.closest('.side-nav button') : null;
     if (!b) return;
-    var isTs = /تایم/.test(b.textContent || '');
+    var label = b.textContent || '';
+    var isTs = /تایم/.test(label);
+    var isAtt = /حضور/.test(label);
+    var isPrj = /پروژ/.test(label);
     document.body.classList.toggle('dast-tsv-on', isTs);
+    document.body.classList.toggle('dast-prj-on', isPrj);
+    document.body.classList.toggle('dast-att-on', isAtt);
+    if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
     if (isTs) setTimeout(function () { renderTimesheetView(); }, 0);
+    if (isPrj) setTimeout(renderProjects, 0);
+    if (isAtt) {
+      setTimeout(renderPresence, 0);
+      presenceTimer = setInterval(renderPresence, 60000);
+    }
   }, true);
 
   // ---------- دکمه‌های نوار پایین ----------
