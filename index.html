@@ -4299,14 +4299,9 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-pin .dp-cancel { background: #ece9f6; color: #1d1a33; }
   #dast-pin .dp-ok:disabled { opacity: .6; }
   #dast-pin .dp-err { color: #b3261e; font-size: 13px; min-height: 18px; margin-top: 6px; }
-  #dast-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2147482000; display: none;
     align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; background: rgba(255,255,255,0.96);
     color: #1d1a33; border-radius: 16px; padding: 10px 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
     font-family: inherit; direction: rtl; font-size: 13px; max-width: calc(100% - 24px); }
-  #dast-bar button { border: 0; border-radius: 10px; padding: 8px 12px; font: inherit; cursor: pointer; background: #4A4193; color: #fff; }
-  #dast-bar button:disabled { opacity: .4; cursor: default; }
-  #dast-bar #dast-logout-btn { background: #ece9f6; color: #1d1a33; }
-  #dast-bar #dast-msg { color: #6b6685; min-width: 60px; }
   #dast-ts { position: fixed; inset: 0; z-index: 2147483100; display: none; align-items: center; justify-content: center;
     background: rgba(20,16,40,0.55); padding: 14px; font-family: inherit; direction: rtl; }
   #dast-ts .dt-card { background: #fff; color: #1d1a33; width: min(620px, 100%); max-height: 88vh; overflow: auto;
@@ -4323,7 +4318,6 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-ts .dt-empty { color: #6b6685; font-size: 13px; padding: 10px 0; }
   #dast-ts .dt-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; }
   #dast-ts #dast-ts-msg { font-size: 13px; }
-  #dast-bar #dast-ts-btn { background: #ece9f6; color: #1d1a33; }
   #dast-dp { position: fixed; inset: 0; z-index: 2147483200; display: none; align-items: center; justify-content: center;
     background: rgba(20,16,40,0.45); padding: 14px; font-family: inherit; direction: rtl; }
   #dast-dp .dp-card { background:#fff; color:#1d1a33; border-radius:16px; padding:16px; width:min(340px,100%); box-shadow:0 20px 60px rgba(0,0,0,.3); }
@@ -4334,7 +4328,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-dp button { border:0; border-radius:9px; padding:8px 14px; font:inherit; cursor:pointer; background:#4A4193; color:#fff; }
   #dast-dp #dast-dp-cancel { background:#ece9f6; color:#1d1a33; }
   .dp-btn { border:1px solid #cfc9e6; border-radius:10px; padding:7px 10px; background:#fff; color:#1d1a33; font:inherit; font-size:13px; cursor:pointer; min-width:120px; }
-  body.dast-tsv-on .content-shell > *:not(#dast-tsv):not(.content-page-heading) { display: none !important; }
+  body.dast-tsv-on #main > *:not(#dast-tsv) { display: none !important; }
   #dast-tsv { display: none; }
   body.dast-tsv-on #dast-tsv { display: block; }
   #dast-tsv .tsv-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
@@ -4355,16 +4349,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     <div id="root"></div>
     
     
-  <div id="dast-bar">
-  <span id="dast-who" style="font-weight:700;"></span>
-  <span id="dast-status"></span>
-  <button type="button" id="dast-in-btn" disabled>ثبت ورود</button>
-  <button type="button" id="dast-out-btn" disabled>ثبت خروج</button>
-  <button type="button" id="dast-ts-btn" style="display:none">ویرایش تایم‌شیت</button>
-  <button type="button" id="dast-export-btn">Excel این ماه</button>
-  <button type="button" id="dast-logout-btn">خروج</button>
-  <span id="dast-msg"></span>
-</div>
+  
 
 <div id="dast-ts" style="display:none">
   <div class="dt-card">
@@ -4681,24 +4666,11 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   }
 
   function renderBar(session) {
-    var bar = $('dast-bar');
-    if (!bar || !session) return;
-    bar.style.display = 'flex';
+    if (!session) return;
     wireTimesheetAdmin(session);
-    $('dast-who').textContent = session.name || '';
-    openAttendance().then(function (open) {
-      $('dast-status').textContent = open ? 'وضعیت: در حال کار' : 'وضعیت: خارج از کار';
-      $('dast-in-btn').disabled = !!open;
-      $('dast-out-btn').disabled = !open;
-    }).catch(function () { $('dast-status').textContent = 'وضعیت نامشخص'; });
   }
   function barMessage(text) {
-    var el = $('dast-msg'); if (el) el.textContent = text;
-  }
-  function barAction(fn, okText) {
-    barMessage('');
-    fn().then(function () { barMessage(okText); return ensureSession().then(renderBar); })
-      .catch(function (e) { barMessage(e.message || 'خطا'); });
+    if (text) console.warn(text);
   }
 
   // ---------- ورود از روی کارت‌های خود v5 (بدون پاپ‌آپ) ----------
@@ -4767,7 +4739,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
 
   function onPickerClick(e) {
     if (!pickerActive) return;
-    if (e.target && e.target.closest && e.target.closest('#dast-pin,#dast-bar')) return;
+    if (e.target && e.target.closest && e.target.closest('#dast-pin')) return;
     var found = findCardFor(e.target);
     if (!found) { closePin(); return; }
     // جلوگیری از اجرای کلیک خود v5 (که بدون رمز وارد می‌کرد)
@@ -4790,7 +4762,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       var els = document.querySelectorAll('button,a,[role=button],li,h1,h2,h3,p,span,div');
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
-        if (el.closest && el.closest('#dast-bar,#dast-gate')) continue;
+        if (el.closest && el.closest('#dast-gate')) continue;
         var txt = (el.textContent || '').trim();
         if (!txt || txt.length > 60) continue;
         for (var k = 0; k < HIDE_FOR_STAFF.length; k++) {
@@ -4965,9 +4937,6 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   }
   function wireTimesheetAdmin(session) {
     if (!session || !session.is_admin) return;
-    var btn = $('dast-ts-btn');
-    btn.style.display = '';
-    btn.onclick = openTimesheetAdmin;
     $('dast-ts-user').onchange = loadTimesheetDay;
     $('dast-ts-day').onchange = loadTimesheetDay;
     $('dast-ts-add').onclick = addTsRow;
@@ -5126,7 +5095,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       var p = n.parentNode;
       if (!p || !/\d{4}-\d{2}-\d{2}/.test(n.nodeValue)) continue;
       if (/^(SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION)$/.test(p.nodeName)) continue;
-      if (p.closest && p.closest('#dast-bar,#dast-pin,#dast-ts,#dast-dp')) continue;
+      if (p.closest && p.closest('#dast-pin,#dast-ts,#dast-dp')) continue;
       nodes.push(n);
     }
     nodes.forEach(function (node) {
@@ -5190,11 +5159,18 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   function closeDatePicker() { $('dast-dp').style.display = 'none'; dpTarget = null; }
 
   var textTimer = null;
+  function relabelClockButtons() {
+    var btns = document.querySelectorAll('#main button');
+    for (var i = 0; i < btns.length; i++) {
+      if ((btns[i].textContent || '').trim() === 'ورود به دفتر') btns[i].textContent = 'ثبت ورود';
+    }
+  }
   function refreshDates() {
     clearTimeout(textTimer);
     textTimer = setTimeout(function () {
       enhanceDateInputs(document);
       ensureOfficeDue();
+      relabelClockButtons();
       convertTextDates(document.getElementById('app-root') || document.body);
     }, 150);
   }
@@ -5227,13 +5203,37 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     if (panel) return panel;
     panel = document.createElement('section');
     panel.id = 'dast-tsv';
-    var host = document.querySelector('.content-shell') || document.querySelector('main') || document.body;
+    var host = document.getElementById('main') || document.querySelector('main') || document.body;
     host.appendChild(panel);
     return panel;
   }
-  function renderTimesheetView() {
+  function fetchMonthRows(uid, y, m) {
+    var startIso = shamsiToIso(y, m, 1);
+    var ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
+    var endIso = shamsiToIso(ny, nm, 1);
+    return sbRequest('rest/v1/attendance',
+      'user_id=eq.' + uid + '&check_in=gte.' + encodeURIComponent(new Date(startIso + 'T00:00:00+03:30').toISOString()) +
+      '&check_in=lt.' + encodeURIComponent(new Date(endIso + 'T00:00:00+03:30').toISOString()) +
+      '&select=id,check_in,check_out&order=check_in.asc')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        return (rows || []).map(function (r) {
+          return { userId: uid, date: tehranDate(r.check_in), in: tehranMinutes(r.check_in),
+                   out: r.check_out ? tehranMinutes(r.check_out) : null };
+        });
+      });
+  }
+  function renderTimesheetView(prefetched) {
     var session = readSession();
     if (!session) return;
+    if (!Array.isArray(prefetched)) {
+      var first = jParts(new Date());
+      if (!tsv.y) { tsv.y = first.jy; tsv.m = first.jm; }
+      if (!tsv.user) tsv.user = session.user_id;
+      fetchMonthRows(tsv.user, tsv.y, tsv.m).then(function (rows) { renderTimesheetView(rows); })
+        .catch(function () { renderTimesheetView([]); });
+      return;
+    }
     var panel = ensureTsvPanel();
     var today = jParts(new Date());
     if (!tsv.y) { tsv.y = today.jy; tsv.m = today.jm; }
@@ -5270,9 +5270,17 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     ys.onchange = function () { tsv.y = +ys.value; renderTimesheetView(); };
     if (ps.options.length) ps.onchange = function () { tsv.user = ps.value; renderTimesheetView(); };
     xls.onclick = function () { exportTimesheetFile(); };
+    if (session.is_admin) {
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'tsv-xls tsv-edit';
+      edit.textContent = 'ویرایش تایم‌شیت';
+      edit.onclick = openTimesheetAdmin;
+      ctrl.appendChild(edit);
+    }
 
     // روزهای ماه شمسی انتخابی
-    var rows = localAttendance().filter(function (x) { return x.userId === tsv.user; });
+    var rows = prefetched;
     var table = document.createElement('table');
     table.className = 'tsv-table';
     var thead = document.createElement('thead');
@@ -5332,22 +5340,16 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   }
   // وقتی منوی تایم‌شیت باز می‌شود، جدول روزانه نشان داده می‌شود و بقیه‌ی بخش‌ها پنهان می‌شوند
   document.addEventListener('click', function (e) {
-    var b = e.target && e.target.closest ? e.target.closest('#top-nav button') : null;
+    var b = e.target && e.target.closest ? e.target.closest('.side-nav button') : null;
     if (!b) return;
     var isTs = /تایم/.test(b.textContent || '');
     document.body.classList.toggle('dast-tsv-on', isTs);
-    if (isTs) setTimeout(renderTimesheetView, 0);
+    if (isTs) setTimeout(function () { renderTimesheetView(); }, 0);
   }, true);
 
   // ---------- دکمه‌های نوار پایین ----------
   function wireUi() {
-    $('dast-in-btn').onclick = function () { barAction(checkIn, 'ورود ثبت شد'); };
-    $('dast-out-btn').onclick = function () { barAction(checkOut, 'خروج ثبت شد'); };
-    $('dast-export-btn').onclick = function () {
-      barMessage('در حال دریافت...');
-      exportMonth().then(function () { barMessage(''); }).catch(function (e) { barMessage(e.message || 'خطا'); });
-    };
-    $('dast-logout-btn').onclick = function () { clearSession(); location.reload(); };
+    // دکمه‌های حضور و غیاب و تایم‌شیت داخل خود بخش‌های v5 هستند
   }
 
   // پاک‌سازی سرویس‌ورکر و کش نسخه‌ی قدیمی، تا کاربر نسخه‌ی قبلی سایت را نبیند
@@ -5363,7 +5365,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   // دکمه‌ی خروج داخل خود v5 (کنار نام کاربر) هم باید واقعاً از حساب خارج کند
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest('button') : null;
-    if (!t || (t.closest && t.closest('#dast-bar,#dast-pin,#dast-ts'))) return;
+    if (!t || (t.closest && t.closest('#dast-pin,#dast-ts'))) return;
     if (t.getAttribute('aria-label') === 'خروج' || t.getAttribute('title') === 'تعویض کاربر') {
       e.preventDefault();
       e.stopPropagation();
