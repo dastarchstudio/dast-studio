@@ -299,3 +299,50 @@ body.dark .dashboard-today-badge{
     padding-inline:12px;
   }
 }
+
+
+/* ===== V5 responsive layout hardening ===== */
+@media (max-width: 900px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden!important; }
+  #root { width:100%; min-height:100dvh; height:auto!important; overflow-x:hidden!important; }
+  #root * { min-width:0; }
+  #root img, #root video, #root canvas, #root iframe { max-width:100%; }
+  #root button, #root [role="button"], #root input, #root select, #root textarea {
+    max-width:100%; touch-action:manipulation;
+  }
+  #root button, #root [role="button"] { min-height:40px; }
+  #root input, #root select, #root textarea { font-size:16px!important; }
+  #root table { width:100%; }
+  #root :where(.overflow-x-auto, .table-wrap, .table-container, [data-table-scroll]) {
+    max-width:100%; overflow-x:auto!important; -webkit-overflow-scrolling:touch;
+  }
+  #root :where(.grid, [class*="grid-cols-"]) {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #root :where(.flex, [class*="flex-row"]) { flex-wrap:wrap; }
+  #root :where(.fixed.inset-0, [role="dialog"], dialog) {
+    max-height:100dvh; overflow-y:auto; overscroll-behavior:contain;
+  }
+  #root :where(input, select, textarea) { min-height:42px; }
+  #root :where(button) { -webkit-tap-highlight-color:transparent; }
+}
+@media (max-width: 560px) {
+  #root :where(.grid, [class*="grid-cols-"]) {
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #root :where(.grid-stats, .quick-actions, [data-mobile-grid="2"]) {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #root :where(table) { min-width:620px; }
+  #root :where(.table-wrap, .table-container, [data-table-scroll]) {
+    border-radius:14px; overscroll-behavior-x:contain;
+  }
+  #root :where(.modal, .dialog, [role="dialog"]) {
+    width:calc(100vw - 20px)!important; max-width:calc(100vw - 20px)!important;
+    max-height:calc(100dvh - 20px)!important; margin:auto;
+  }
+  #root :where(input, select, textarea) { width:100%; }
+}
+@media (orientation:landscape) and (max-height:560px) {
+  #root :where(.modal, .dialog, [role="dialog"]) { max-height:94dvh!important; overflow-y:auto!important; }
+}
