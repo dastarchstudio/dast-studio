@@ -4291,7 +4291,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#342D73">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="icon" href="/assets/logo_blue.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/logo_blue.svg?v=20261031" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/mobile.css?v=20261031" />
 <style>
@@ -4464,6 +4464,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     return fetch(sbPath(path, query), {
       method: opts.method || 'GET',
       headers: headers,
+      cache: opts.cache || 'default',
       body: opts.body ? JSON.stringify(opts.body) : undefined
     });
   }
@@ -4652,27 +4653,44 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     return ensureSession().then(function (s) {
       if (!s) return null;
       return sbRequest('rest/v1/attendance',
-        'user_id=eq.' + s.user_id + '&check_out=is.null&select=id,check_in&order=check_in.desc&limit=1')
-        .then(function (r) { return r.json(); })
+        'user_id=eq.' + encodeURIComponent(s.user_id) + '&check_out=is.null&select=id,check_in&order=check_in.desc&limit=1', {
+          cache: 'no-store'
+        })
+        .then(function (r) {
+          if (!r.ok) throw new Error('خواندن وضعیت حضور انجام نشد');
+          return r.json();
+        })
         .then(function (rows) { return rows && rows[0] ? rows[0] : null; });
     });
   }
+  // ثبت ورود/خروج باید idempotent باشد: کلیک تکراری نباید رکورد بازِ تکراری بسازد.
   function checkIn() {
-    return ensureSession().then(function (s) {
-      return sbRequest('rest/v1/attendance', '', {
-        method: 'POST', prefer: 'return=minimal',
-        body: { user_id: s.user_id, check_in: new Date().toISOString() }
+    return openAttendance().then(function (active) {
+      if (active) return active;
+      return ensureSession().then(function (s) {
+        if (!s) throw new Error('نشست فعال نیست');
+        return sbRequest('rest/v1/attendance', '', {
+          method: 'POST', prefer: 'return=minimal',
+          body: { user_id: s.user_id, check_in: new Date().toISOString() }
+        });
+      }).then(function (r) {
+        if (!r.ok) throw new Error('ثبت ورود انجام نشد');
+        return openAttendance();
       });
-    }).then(function (r) { if (!r.ok) throw new Error('ثبت ورود انجام نشد'); });
+    });
   }
   function checkOut() {
-    return ensureSession().then(function (s) {
+    return openAttendance().then(function (active) {
+      if (!active) return null;
       return sbRequest('rest/v1/attendance',
-        'user_id=eq.' + s.user_id + '&check_out=is.null', {
+        'id=eq.' + encodeURIComponent(active.id) + '&check_out=is.null', {
           method: 'PATCH', prefer: 'return=minimal',
           body: { check_out: new Date().toISOString() }
+        }).then(function (r) {
+          if (!r.ok) throw new Error('ثبت خروج انجام نشد');
+          return null;
         });
-    }).then(function (r) { if (!r.ok) throw new Error('ثبت خروج انجام نشد'); });
+    });
   }
   function exportMonth() {
     var parts = new Intl.DateTimeFormat('en-u-ca-persian', { year: 'numeric', month: 'numeric' }).formatToParts(new Date());
@@ -5489,33 +5507,40 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     var list = document.createElement('div');
     list.className = 'pr-list';
     p.appendChild(list);
+    var busy = false;
+
+    function showState(active) {
+      status.textContent = active ? 'وضعیت شما: حاضر در دفتر' : 'وضعیت شما: خارج از دفتر';
+      status.classList.toggle('is-present', !!active);
+      action.disabled = false;
+      action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
+      action.onclick = function () {
+        if (busy) return;
+        busy = true;
+        action.disabled = true;
+        action.textContent = 'در حال ثبت...';
+        var task = active ? checkOut() : checkIn();
+        task.then(function () {
+          return openAttendance();
+        }).then(function (fresh) {
+          showState(fresh);
+          if (typeof barMessage === 'function') barMessage(fresh ? 'ورود شما فعال است؛ وضعیت: حاضر در دفتر' : 'خروج با موفقیت ثبت شد');
+          if (document.body.classList.contains('dast-tsv-on')) renderTimesheetView();
+        }).catch(function (err) {
+          status.textContent = (err && err.message) || 'ثبت حضور انجام نشد';
+          action.disabled = false;
+          action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
+        }).then(function () { busy = false; });
+      };
+    }
 
     ensureSession().then(function (s) {
       if (!s) { status.textContent = 'برای ثبت حضور ابتدا وارد حساب شوید.'; action.style.display = 'none'; return; }
       return openAttendance().then(function (active) {
-        function setStatus() {
-          status.textContent = active ? 'وضعیت شما: حاضر در دفتر' : 'وضعیت شما: خارج از دفتر';
-          status.classList.toggle('is-present', !!active);
-          action.disabled = false;
-          action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
-          action.onclick = function () {
-            action.disabled = true;
-            action.textContent = 'در حال ثبت...';
-            var task = active ? checkOut() : checkIn();
-            task.then(function () {
-              if (typeof barMessage === 'function') barMessage(active ? 'خروج با موفقیت ثبت شد' : 'ورود با موفقیت ثبت شد');
-              renderPresence();
-              if (document.body.classList.contains('dast-tsv-on')) renderTimesheetView();
-            }).catch(function (err) {
-              action.disabled = false;
-              action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
-              status.textContent = (err && err.message) || 'ثبت حضور انجام نشد';
-            });
-          };
-        }
-        setStatus();
+        showState(active);
         return fetch(sbPath('rest/v1/rpc/office_now', ''), {
           method: 'POST',
+          cache: 'no-store',
           headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
           body: '{}'
         }).then(function (r) {
