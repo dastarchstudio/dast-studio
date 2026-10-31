@@ -4359,6 +4359,8 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-presence h2 { margin: 0 0 10px; font-size: 16px; }
   #dast-presence .pr-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border, #e2e2ec); font-size: 14px; }
   #dast-presence .pr-empty { color: var(--muted, #6b6b80); font-size: 13px; }
+  #dast-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483300; display: none;
+    background: #1d1a33; color: #fff; padding: 12px 18px; border-radius: 12px; font-family: inherit; direction: rtl; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
   .dg-fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: #fff; color: #b3261e; font-family: inherit; z-index: 2147483001; padding: 20px; text-align: center; }
 </style>
@@ -4831,6 +4833,49 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     document.body.appendChild(s);
   }
 
+  // ---------- ثبت ورود/خروج با NFC ----------
+  // کارت NFC یک آدرس را باز می‌کند: ?nfc=TOKEN. توکن را نگه می‌داریم تا بعد از ورود اعمال شود.
+  function captureNfcFromUrl() {
+    var q = new URLSearchParams(location.search).get('nfc');
+    if (q) {
+      sessionStorage.setItem('dast-nfc', q);
+      history.replaceState(null, '', location.pathname);
+    }
+  }
+  function toast(text) {
+    var t = document.getElementById('dast-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'dast-toast';
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    t.style.display = 'block';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function () { t.style.display = 'none'; }, 4000);
+  }
+  function handleNfcPending() {
+    var token = sessionStorage.getItem('dast-nfc');
+    if (!token) return Promise.resolve();
+    sessionStorage.removeItem('dast-nfc');
+    return ensureSession().then(function (s) {
+      if (!s) return;
+      return fetch(sbPath('rest/v1/rpc/nfc_toggle', ''), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
+        body: JSON.stringify({ p_token: token })
+      }).then(function (r) {
+        if (!r.ok) throw new Error('invalid');
+        return r.json();
+      }).then(function (d) {
+        var where = d && d.label ? ' (' + d.label + ')' : '';
+        toast(d && d.action === 'in' ? 'ورود ثبت شد' + where : 'خروج ثبت شد' + where);
+      }).catch(function () {
+        toast('این کارت معتبر نیست یا ثبت انجام نشد');
+      });
+    });
+  }
+
   // ---------- شروع ----------
   function boot() {
     loadStaff().then(function () {
@@ -4841,7 +4886,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
             sessionStorage.removeItem(INTRO_FLAG);
             return startIntro();
           }
-          return hydrate().then(function () {
+          return handleNfcPending().then(function () { return hydrate(); }).then(function () {
             saveEnabled = true;
           }, function () { /* کش محلی */ }).then(function () {
             setBundleContext(s);
@@ -5583,6 +5628,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   $('dast-dp-ok').onclick = applyDatePicker;
   $('dast-dp-cancel').onclick = closeDatePicker;
   startDateWatcher();
+  captureNfcFromUrl();
   boot();
 })();
 
