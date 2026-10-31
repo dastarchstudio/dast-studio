@@ -4363,6 +4363,10 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
   #dast-presence { display: none; background: var(--surface, #fff); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
   body.dast-att-on #dast-presence { display: block; }
   #dast-presence h2 { margin: 0 0 10px; font-size: 16px; }
+  #dast-presence .pr-status { margin: 8px 0 12px; font-weight: 800; }
+  #dast-presence .pr-status.is-present { color: #21865b; }
+  #dast-presence .pr-action { margin-bottom: 14px; }
+  #dast-presence .pr-action:disabled { opacity: .6; cursor: wait; }
   #dast-presence .pr-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border, #e2e2ec); font-size: 14px; }
   #dast-presence .pr-empty { color: var(--muted, #6b6b80); font-size: 13px; }
   #dast-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483300; display: none;
@@ -5320,7 +5324,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       'user_id=eq.' + uid + '&check_in=gte.' + encodeURIComponent(new Date(startIso + 'T00:00:00+03:30').toISOString()) +
       '&check_in=lt.' + encodeURIComponent(new Date(endIso + 'T00:00:00+03:30').toISOString()) +
       '&select=id,check_in,check_out&order=check_in.asc')
-      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (r) { if (!r.ok) throw new Error('دریافت سوابق حضور ناموفق بود (' + r.status + ')'); return r.json(); })
       .then(function (rows) {
         return (rows || []).map(function (r) {
           return { userId: uid, date: tehranDate(r.check_in), in: tehranMinutes(r.check_in),
@@ -5336,7 +5340,14 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
       if (!tsv.y) { tsv.y = first.jy; tsv.m = first.jm; }
       if (!tsv.user) tsv.user = session.user_id;
       fetchMonthRows(tsv.user, tsv.y, tsv.m).then(function (rows) { renderTimesheetView(rows); })
-        .catch(function () { renderTimesheetView([]); });
+        .catch(function (err) {
+          var panel = ensureTsvPanel(); panel.innerHTML = '';
+          var msg = document.createElement('div'); msg.className = 'tsv-msg';
+          msg.textContent = (err && err.message) || 'بارگذاری تایم‌شیت انجام نشد. اتصال و دسترسی را بررسی کنید.';
+          panel.appendChild(msg);
+          var retry = document.createElement('button'); retry.type = 'button'; retry.className = 'tsv-xls'; retry.textContent = 'تلاش دوباره';
+          retry.onclick = function () { renderTimesheetView(); }; panel.appendChild(retry);
+        });
       return;
     }
     var panel = ensureTsvPanel();
@@ -5360,7 +5371,7 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     ctrl.appendChild(ms); ctrl.appendChild(ys);
     var ps = document.createElement('select');
     if (session.is_admin) {
-      staff.forEach(function (p) { var o = document.createElement('option'); o.value = p.id; o.textContent = p.full_name || ''; if (p.id === tsv.user) o.selected = true; ps.appendChild(o); });
+      staffRows.forEach(function (p) { var o = document.createElement('option'); o.value = p.id; o.textContent = p.full_name || ''; if (p.id === tsv.user) o.selected = true; ps.appendChild(o); });
       ctrl.appendChild(ps);
     }
     var xls = document.createElement('button');
@@ -5462,29 +5473,78 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     var h = document.createElement('h2');
     h.textContent = 'الان در دفتر';
     p.appendChild(h);
+
+    var status = document.createElement('div');
+    status.className = 'pr-status';
+    status.textContent = 'در حال بررسی وضعیت حضور...';
+    p.appendChild(status);
+    var action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'tsv-xls pr-action';
+    action.disabled = true;
+    action.textContent = 'لطفاً صبر کنید';
+    p.appendChild(action);
+
     var list = document.createElement('div');
     list.className = 'pr-list';
     p.appendChild(list);
+
     ensureSession().then(function (s) {
-      if (!s) return;
-      return fetch(sbPath('rest/v1/rpc/office_now', ''), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
-        body: '{}'
-      }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
-        list.innerHTML = '';
-        if (!rows || !rows.length) { list.innerHTML = '<div class="pr-empty">الان کسی در دفتر ثبت نشده.</div>'; return; }
-        rows.forEach(function (x) {
-          var row = document.createElement('div');
-          row.className = 'pr-row';
-          var name = (staffRows.filter(function (st) { return st.id === x.user_id; })[0] || {}).full_name || '—';
-          row.innerHTML = '<span></span><span></span>';
-          row.children[0].textContent = name;
-          row.children[1].textContent = 'از ' + tehranHM(x.check_in);
-          list.appendChild(row);
+      if (!s) { status.textContent = 'برای ثبت حضور ابتدا وارد حساب شوید.'; action.style.display = 'none'; return; }
+      return openAttendance().then(function (active) {
+        function setStatus() {
+          status.textContent = active ? 'وضعیت شما: حاضر در دفتر' : 'وضعیت شما: خارج از دفتر';
+          status.classList.toggle('is-present', !!active);
+          action.disabled = false;
+          action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
+          action.onclick = function () {
+            action.disabled = true;
+            action.textContent = 'در حال ثبت...';
+            var task = active ? checkOut() : checkIn();
+            task.then(function () {
+              if (typeof barMessage === 'function') barMessage(active ? 'خروج با موفقیت ثبت شد' : 'ورود با موفقیت ثبت شد');
+              renderPresence();
+              if (document.body.classList.contains('dast-tsv-on')) renderTimesheetView();
+            }).catch(function (err) {
+              action.disabled = false;
+              action.textContent = active ? 'ثبت خروج' : 'ثبت ورود';
+              status.textContent = (err && err.message) || 'ثبت حضور انجام نشد';
+            });
+          };
+        }
+        setStatus();
+        return fetch(sbPath('rest/v1/rpc/office_now', ''), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
+          body: '{}'
+        }).then(function (r) {
+          if (!r.ok) throw new Error('خواندن فهرست حاضرین انجام نشد');
+          return r.json();
+        }).then(function (rows) {
+          list.innerHTML = '';
+          if (!rows || !rows.length) {
+            var empty = document.createElement('div'); empty.className = 'pr-empty';
+            empty.textContent = 'در حال حاضر فردی با ثبت ورود فعال در فهرست نیست.';
+            list.appendChild(empty); return;
+          }
+          rows.forEach(function (x) {
+            var row = document.createElement('div');
+            row.className = 'pr-row';
+            var person = staffRows.filter(function (st) { return st.id === x.user_id; })[0] || {};
+            var name = document.createElement('span'); name.textContent = person.full_name || '—';
+            var time = document.createElement('span'); time.textContent = 'از ' + tehranHM(x.check_in);
+            row.appendChild(name); row.appendChild(time); list.appendChild(row);
+          });
+        }).catch(function (err) {
+          var empty = document.createElement('div'); empty.className = 'pr-empty';
+          empty.textContent = (err && err.message) || 'خواندن لیست حاضرین انجام نشد.';
+          list.appendChild(empty);
         });
       });
-    }).catch(function () { list.innerHTML = '<div class="pr-empty">خواندن لیست انجام نشد.</div>'; });
+    }).catch(function (err) {
+      status.textContent = (err && err.message) || 'بررسی وضعیت حضور انجام نشد.';
+      action.style.display = 'none';
+    });
   }
   function tehranHM(iso) {
     return new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
