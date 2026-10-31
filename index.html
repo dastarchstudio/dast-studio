@@ -4680,10 +4680,11 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     });
   }
   function checkOut() {
-    return openAttendance().then(function (active) {
-      if (!active) return null;
+    return ensureSession().then(function (s) {
+      if (!s) throw new Error('نشست فعال نیست');
+      // اگر از نسخه‌ی قبلی چند رکوردِ باز باقی مانده باشد، خروج همه‌ی آن‌ها را می‌بندد.
       return sbRequest('rest/v1/attendance',
-        'id=eq.' + encodeURIComponent(active.id) + '&check_out=is.null', {
+        'user_id=eq.' + encodeURIComponent(s.user_id) + '&check_out=is.null', {
           method: 'PATCH', prefer: 'return=minimal',
           body: { check_out: new Date().toISOString() }
         }).then(function (r) {
