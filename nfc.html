@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ثبت حضور</title>
+<style>
+  :root { --navy:#342D73; --navy2:#4a4193; --bg:#f4f5f9; --card:#fff; --text:#1a1a2e; --muted:#6b6b80; --border:#e2e2ec; --ok:#1f8a5a; --bad:#c0392b; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; font-family:'Vazirmatn','Segoe UI',Tahoma,sans-serif; background:var(--bg); color:var(--text);
+    display:flex; align-items:center; justify-content:center; padding:20px; }
+  .box { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:24px; width:min(420px,100%); text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+  .brand { color:var(--navy); font-weight:800; margin-bottom:10px; }
+  h1 { font-size:20px; margin:8px 0 6px; }
+  .big { font-size:26px; font-weight:800; margin:10px 0; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .muted { color:var(--muted); font-size:14px; }
+  .staff { display:grid; gap:8px; margin-top:14px; }
+  button { font-family:inherit; font-size:15px; border:0; border-radius:12px; padding:12px 14px; background:var(--navy2); color:#fff; cursor:pointer; width:100%; }
+  button.light { background:#ece9f6; color:var(--text); }
+  button:disabled { opacity:.6; }
+  input { font-family:inherit; font-size:15px; padding:12px; border:1px solid var(--border); border-radius:12px; width:100%; margin-top:10px; direction:ltr; }
+  .err { color:var(--bad); font-size:14px; min-height:20px; margin-top:8px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="/logo-blue.png" alt="دَست" style="width:64px;height:64px;object-fit:contain;margin-bottom:6px;"><div class="brand">استودیو معماری دَست</div>
+
+  <div id="status">
+    <p class="muted">در حال ثبت…</p>
+  </div>
+
+  <div id="login" class="hidden">
+    <h1>اولین بار روی این گوشی</h1>
+    <p class="muted">نام خودت را انتخاب کن و رمز را وارد کن. دفعه‌ی بعد نیازی به رمز نیست.</p>
+    <div id="staff" class="staff"></div>
+    <div id="passBox" class="hidden">
+      <p id="who" style="font-weight:700;"></p>
+      <input type="password" id="pass" placeholder="رمز عبور" autocomplete="current-password">
+      <div class="err" id="err"></div>
+      <button type="button" id="go">ثبت ورود/خروج</button>
+      <button type="button" class="light" id="back" style="margin-top:8px;">بازگشت</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SB = location.origin + '/api/sb';
+  var SESSION_KEY = 'dast-session';
+  var DONE_KEY = 'dast-nfc-last';
+  var TEHRAN = '+03:30';
+  var $ = function (id) { return document.getElementById(id); };
+
+  function sbPath(path) { return SB + '?__p=' + encodeURIComponent(path); }
+  function readSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; } }
+  function writeSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+  function refresh(s) {
+    return fetch(sbPath('auth/v1/token') + '&grant_type=refresh_token', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    }).then(function (r) {
+      if (!r.ok) return null;
+      return r.json().then(function (d) {
+        var n = { access_token: d.access_token, refresh_token: d.refresh_token,
+          expires_at: Date.now() + (d.expires_in || 3600) * 1000, user_id: s.user_id, is_admin: s.is_admin, name: s.name };
+        writeSession(n);
+        return n;
+      });
+    }).catch(function () { return null; });
+  }
+  function ensureSession() {
+    var s = readSession();
+    if (!s) return Promise.resolve(null);
+    if (Date.now() < (s.expires_at || 0) - 60000) return Promise.resolve(s);
+    return refresh(s);
+  }
+  function hm(iso) {
+    return new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  }
+  function show(html) { $('status').innerHTML = html; $('status').classList.remove('hidden'); $('login').classList.add('hidden'); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function toggle(s, token) {
+    return fetch(sbPath('rest/v1/rpc/nfc_toggle'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
+      body: JSON.stringify({ p_token: token })
+    }).then(function (r) {
+      if (r.status === 401) throw new Error('session');
+      if (!r.ok) throw new Error('invalid');
+      return r.json();
+    });
+  }
+
+  function record(s, token) {
+    // جلوگیری از ثبت دوباره اگر صفحه با رفرش دوباره باز شد
+    var last = null;
+    try { last = JSON.parse(sessionStorage.getItem(DONE_KEY) || 'null'); } catch (e) { last = null; }
+    if (last && last.token === token && Date.now() - last.at < 60000) {
+      show('<h1 class="ok">ثبت شده</h1><p class="muted">' + esc(s.name || '') + ' — همین الان ثبت شد.</p>');
+      return;
+    }
+    toggle(s, token).then(function (d) {
+      sessionStorage.setItem(DONE_KEY, JSON.stringify({ token: token, at: Date.now() }));
+      var isIn = d && d.action === 'in';
+      show('<h1 class="' + (isIn ? 'ok' : 'bad') + '">' + (isIn ? 'ورود ثبت شد' : 'خروج ثبت شد') + '</h1>' +
+           '<div class="big">' + esc(s.name || '') + '</div>' +
+           '<p class="muted">' + (d && d.label ? esc(d.label) + ' · ' : '') + hm(d.at) + '</p>' +
+           '<p class="muted">می‌تونی این صفحه رو ببندی.</p>');
+    }).catch(function (e) {
+      if (e.message === 'session') { localStorage.removeItem(SESSION_KEY); askLogin(token); return; }
+      show('<h1 class="bad">کارت معتبر نیست</h1><p class="muted">به ادمین خبر بده.</p>');
+    });
+  }
+
+  function askLogin(token) {
+    $('status').classList.add('hidden');
+    $('login').classList.remove('hidden');
+    var box = $('staff');
+    box.innerHTML = '';
+    fetch('/api/staff').then(function (r) { return r.json(); }).then(function (rows) {
+      rows.forEach(function (p) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'light';
+        b.textContent = p.full_name || '';
+        b.onclick = function () { pick(p, token); };
+        box.appendChild(b);
+      });
+    }).catch(function () { $('err').textContent = 'فهرست کارمندان در دسترس نیست'; });
+  }
+  var chosen = null;
+  function pick(p, token) {
+    chosen = p;
+    $('staff').classList.add('hidden');
+    $('passBox').classList.remove('hidden');
+    $('who').textContent = p.full_name || '';
+    $('pass').value = '';
+    $('err').textContent = '';
+    $('pass').focus();
+    $('go').onclick = function () { submit(token); };
+    $('back').onclick = function () { $('passBox').classList.add('hidden'); $('staff').classList.remove('hidden'); };
+    $('pass').onkeydown = function (e) { if (e.key === 'Enter') submit(token); };
+  }
+  function submit(token) {
+    if (!chosen) return;
+    if (!$('pass').value) { $('err').textContent = 'رمز را وارد کن'; return; }
+    $('go').disabled = true;
+    fetch('/api/login', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ profile_id: chosen.id, password: $('pass').value })
+    }).then(function (r) {
+      if (r.status === 401) throw new Error('رمز اشتباه است');
+      if (!r.ok) throw new Error('ورود انجام نشد');
+      return r.json();
+    }).then(function (d) {
+      var s = { access_token: d.access_token, refresh_token: d.refresh_token,
+        expires_at: Date.now() + (d.expires_in || 3600) * 1000, user_id: d.user_id || chosen.id,
+        is_admin: !!chosen.is_admin, name: chosen.full_name || '' };
+      writeSession(s);
+      record(s, token);
+    }).catch(function (e) {
+      $('err').textContent = e.message || 'خطا';
+      $('go').disabled = false;
+    });
+  }
+
+  var token = new URLSearchParams(location.search).get('nfc') || new URLSearchParams(location.search).get('t');
+  if (!token) { show('<h1 class="bad">کارت شناخته نشد</h1>'); return; }
+  history.replaceState(null, '', location.pathname);   // آدرس را تمیز کن تا رفرش دوباره ثبت نکند
+  ensureSession().then(function (s) {
+    if (s) record(s, token); else askLogin(token);
+  });
+})();
+</script>
+</body>
+</html>
