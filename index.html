@@ -5509,6 +5509,45 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
     list.className = 'pr-list';
     p.appendChild(list);
     var busy = false;
+    var session = null;
+
+    function loadRoster() {
+      if (!session) return Promise.resolve();
+      return fetch(sbPath('rest/v1/rpc/office_now', ''), {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.access_token },
+        body: '{}'
+      }).then(function (r) {
+        if (!r.ok) throw new Error('خواندن فهرست حاضرین انجام نشد');
+        return r.json();
+      }).then(function (rows) {
+        list.innerHTML = '';
+        var activeByUser = {};
+        (rows || []).forEach(function (x) {
+          // اگر داده‌ی قدیمی چند ردیف باز داشته باشد، آخرین ورود ملاک است.
+          if (!activeByUser[x.user_id] || new Date(x.check_in) > new Date(activeByUser[x.user_id].check_in)) {
+            activeByUser[x.user_id] = x;
+          }
+        });
+        var activeIds = Object.keys(activeByUser);
+        if (!activeIds.length) {
+          var empty = document.createElement('div'); empty.className = 'pr-empty';
+          empty.textContent = 'در حال حاضر فردی با ثبت ورود فعال در فهرست نیست.';
+          list.appendChild(empty);
+          return;
+        }
+        activeIds.forEach(function (id) {
+          var x = activeByUser[id];
+          var row = document.createElement('div');
+          row.className = 'pr-row is-present';
+          var person = staffRows.filter(function (st) { return st.id === id; })[0] || {};
+          var name = document.createElement('span'); name.textContent = person.full_name || '—';
+          var time = document.createElement('span'); time.textContent = 'در دفتر · از ' + tehranHM(x.check_in);
+          row.appendChild(name); row.appendChild(time); list.appendChild(row);
+        });
+      });
+    }
 
     function showState(active) {
       status.textContent = active ? 'وضعیت شما: حاضر در دفتر' : 'وضعیت شما: خارج از دفتر';
@@ -5525,7 +5564,9 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
           return openAttendance();
         }).then(function (fresh) {
           showState(fresh);
-          if (typeof barMessage === 'function') barMessage(fresh ? 'ورود شما فعال است؛ وضعیت: حاضر در دفتر' : 'خروج با موفقیت ثبت شد');
+          return loadRoster();
+        }).then(function () {
+          if (typeof barMessage === 'function') barMessage(active ? 'خروج ثبت شد؛ وضعیت شما خارج از دفتر است.' : 'ورود ثبت شد؛ وضعیت شما در دفتر است.');
           if (document.body.classList.contains('dast-tsv-on')) renderTimesheetView();
         }).catch(function (err) {
           status.textContent = (err && err.message) || 'ثبت حضور انجام نشد';
@@ -5537,36 +5578,10 @@ html,body{height:100%}body{margin:0}#root{height:100dvh;overflow:auto}*,:before,
 
     ensureSession().then(function (s) {
       if (!s) { status.textContent = 'برای ثبت حضور ابتدا وارد حساب شوید.'; action.style.display = 'none'; return; }
+      session = s;
       return openAttendance().then(function (active) {
         showState(active);
-        return fetch(sbPath('rest/v1/rpc/office_now', ''), {
-          method: 'POST',
-          cache: 'no-store',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token },
-          body: '{}'
-        }).then(function (r) {
-          if (!r.ok) throw new Error('خواندن فهرست حاضرین انجام نشد');
-          return r.json();
-        }).then(function (rows) {
-          list.innerHTML = '';
-          if (!rows || !rows.length) {
-            var empty = document.createElement('div'); empty.className = 'pr-empty';
-            empty.textContent = 'در حال حاضر فردی با ثبت ورود فعال در فهرست نیست.';
-            list.appendChild(empty); return;
-          }
-          rows.forEach(function (x) {
-            var row = document.createElement('div');
-            row.className = 'pr-row';
-            var person = staffRows.filter(function (st) { return st.id === x.user_id; })[0] || {};
-            var name = document.createElement('span'); name.textContent = person.full_name || '—';
-            var time = document.createElement('span'); time.textContent = 'از ' + tehranHM(x.check_in);
-            row.appendChild(name); row.appendChild(time); list.appendChild(row);
-          });
-        }).catch(function (err) {
-          var empty = document.createElement('div'); empty.className = 'pr-empty';
-          empty.textContent = (err && err.message) || 'خواندن لیست حاضرین انجام نشد.';
-          list.appendChild(empty);
-        });
+        return loadRoster();
       });
     }).catch(function (err) {
       status.textContent = (err && err.message) || 'بررسی وضعیت حضور انجام نشد.';
