@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
   try {
     const r = await fetch(
-      `${origin}/rest/v1/profiles?select=id,full_name,role_title,department,is_admin&order=full_name.asc`,
+      `${origin}/rest/v1/profiles?select=id,full_name,role_title,department,is_admin&id=not.in.(51289e96-dc6e-4894-a9e3-8edad4a6511e,d8c53963-d5ba-4eb2-92a0-171b57bc28f0)&order=full_name.asc`,
       { headers: { apikey: key, authorization: `Bearer ${key}` } }
     );
     if (!r.ok) {
